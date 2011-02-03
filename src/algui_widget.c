@@ -218,7 +218,7 @@ static int _remove_widget(ALGUI_WIDGET *wgt, ALGUI_REMOVE_WIDGET_MESSAGE *msg) {
     assert(msg->child);
     msg->ok = algui_remove_tree(&wgt->tree, &msg->child->tree);
     if (msg->ok) {
-        _update_flags(msg->child, wgt->drawn);
+        _update_flags(msg->child, 0);
         if (wgt->drawn) {
             _update_layout(wgt);
         }
