@@ -9,46 +9,155 @@
  ******************************************************************************/
  
  
-//updates the screen rectangle of a widget, if needed
-static void _update_screen_rect(ALGUI_WIDGET *wgt) {
+//calculates the screen rectangle of a widget
+static void _calc_screen_rect(ALGUI_WIDGET *wgt) {
     ALGUI_WIDGET *parent, *child;
-
-    //the screen rect is already valid
-    if (wgt->screen_rect_valid) return;
     
     parent = algui_get_parent_widget(wgt);
     
-    //if the widget is child
+    //for child
     if (parent) {
         wgt->screen_rect = wgt->rect;
         algui_offset_rect(&wgt->screen_rect, parent->screen_rect.left, parent->screen_rect.top);
     }
-    
-    //else it is a root widget
+
+    //for root    
     else {
         wgt->screen_rect = wgt->rect;
     }
     
-    wgt->screen_rect_valid = 1;
-    
-    //invalidate children
+    //calculate children
     for(child = algui_get_lowest_child_widget(wgt); child; child = algui_get_higher_sibling_widget(child)) {
-        child->screen_rect_valid = 0;
+        _calc_screen_rect(child);
     }
+} 
+
+
+//checks if a widget is being managed
+static int _manages_layout(ALGUI_WIDGET *wgt) {
+    for(; wgt; wgt = algui_get_parent_widget(wgt)) {
+        if (wgt->layout) return 1;
+    }
+    return 0;
+}
+ 
+ 
+//sets the preferred size to a widget, children first
+static void _set_preferred_size(ALGUI_WIDGET *wgt) {
+    ALGUI_SET_PREFERRED_RECT_MESSAGE msg;
+    ALGUI_WIDGET *child;
+    
+    //avoid hidden widgets
+    if (!wgt->visible_tree) return;
+    
+    //begin layout management
+    wgt->layout = 1;
+    
+    //notify children
+    for(child = algui_get_lowest_child_widget(wgt); child; child = algui_get_higher_sibling_widget(child)) {
+        _set_preferred_size(child);
+    }
+    
+    //send message to widget
+    msg.message.id = ALGUI_MSG_SET_PREFERRED_RECT;
+    algui_send_message(wgt, &msg.message);
+    
+    //end layout management
+    wgt->layout = 0;
+}
+ 
+ 
+//do layout, parent first
+static void _do_layout(ALGUI_WIDGET *wgt) {
+    ALGUI_DO_LAYOUT_MESSAGE msg;
+    ALGUI_WIDGET *child;
+    
+    //avoid hidden widgets
+    if (!wgt->visible_tree) return;
+    
+    //begin layout management
+    wgt->layout = 1;
+    
+    //send message to widget
+    msg.message.id = ALGUI_MSG_DO_LAYOUT;
+    algui_send_message(wgt, &msg.message);
+    
+    //notify children
+    for(child = algui_get_lowest_child_widget(wgt); child; child = algui_get_higher_sibling_widget(child)) {
+        _do_layout(child);
+    }
+
+    //end layout management
+    wgt->layout = 0;
+}
+ 
+ 
+//if the widget's layout is invalid, then initialize the layout    
+static void _init_layout(ALGUI_WIDGET *wgt) {
+    _set_preferred_size(wgt);
+    _do_layout(wgt);    
+    _calc_screen_rect(wgt);
 }
 
 
+//updates the layout of a widget
+static void _update_layout(ALGUI_WIDGET *wgt) {
+    ALGUI_SET_PREFERRED_RECT_MESSAGE msg;
+    ALGUI_WIDGET *last;
+    int w, h;
+    
+    do {    
+        last = wgt;
+        
+        //keep the size of the widget
+        w = algui_get_rect_width(&wgt->rect);
+        h = algui_get_rect_height(&wgt->rect);
+
+        //ask the widget to recalculate its preferred size    
+        msg.message.id = ALGUI_MSG_SET_PREFERRED_RECT;
+        algui_send_message(wgt, &msg.message);
+        
+        //if the size didn't change, there is no need to propagate the calculation further
+        if (algui_get_rect_width(&wgt->rect) == w && 
+            algui_get_rect_height(&wgt->rect) == h) break;
+        
+        //propagate the calculation to the parent
+        wgt = algui_get_parent_widget(wgt);
+    } while (wgt);    
+    
+    //recalculate the layout from the last widget (where the propagation stopped)
+    _do_layout(last);
+    _calc_screen_rect(last);
+}
+
+
+//updates the widgets' flags
+static void _update_flags(ALGUI_WIDGET *wgt, int drawn) {
+    ALGUI_WIDGET *parent, *child;    
+    parent = algui_get_parent_widget(wgt);
+    wgt->visible_tree = wgt->visible && (!parent || parent->visible_tree);
+    wgt->enabled_tree = wgt->enabled && (!parent || parent->enabled_tree);
+    wgt->drawn = drawn;
+    for(child = algui_get_highest_child_widget(wgt); child; child = algui_get_higher_sibling_widget(child)) {
+        _update_flags(child, drawn);
+    }
+} 
+ 
+ 
 //recursively draw widgets
 static void _draw(ALGUI_WIDGET *wgt, ALGUI_RECT *rect) {
     ALGUI_PAINT_MESSAGE msg;
     ALGUI_WIDGET *child;
+    
+    //if the widget is not drawn yet, then initialize the widgets
+    if (!wgt->drawn) {
+        _update_flags(wgt, 1);
+        _init_layout(wgt);
+    }
 
     //avoid invisible widgets
     if (!wgt->visible_tree) return;
-    
-    //update the widget's screen rect, if needed
-    _update_screen_rect(wgt);
-    
+
     //calculate the actual clip between the widget rect and the given rect
     algui_get_rect_intersection(&wgt->screen_rect, rect, &msg.paint_rect);
     
@@ -85,42 +194,6 @@ static void _destroy(ALGUI_WIDGET *wgt) {
 }
 
 
-//updates the visible and enabled tree flags of the widget tree
-static void _update_visible_and_enabled_tree(ALGUI_WIDGET *wgt) {
-    ALGUI_WIDGET *parent, *child;    
-    parent = algui_get_parent_widget(wgt);
-    wgt->visible_tree = wgt->visible && (!parent || parent->visible_tree);
-    wgt->enabled_tree = wgt->enabled && (!parent || parent->enabled_tree);
-    for(child = algui_get_highest_child_widget(wgt); child; child = algui_get_higher_sibling_widget(child)) {
-        _update_visible_and_enabled_tree(child);
-    }
-} 
- 
- 
-//cleanup
-static int _cleanup(ALGUI_WIDGET *wgt, ALGUI_CLEANUP_MESSAGE *msg) {
-    assert(wgt);
-    assert(msg);
-    return 1;
-} 
-
-
-//paint
-static int _paint(ALGUI_WIDGET *wgt, ALGUI_PAINT_MESSAGE *msg) {
-    ALGUI_RECT *pos = &msg->widget_rect;
-    ALLEGRO_COLOR bg = algui_has_widget_focus(wgt) ? al_map_rgb(255, 255, 0) : al_map_rgb(255, 255, 255);
-    int border = algui_has_widget_focus(wgt) ? 3 : 1;
-
-    //draw a white box
-    al_draw_filled_rectangle(pos->left + 0.5f, pos->top + 0.5f, pos->right + 0.5f, pos->bottom + 0.5f, bg);
-    
-    //draw a black border
-    al_draw_rectangle(pos->left + 0.5f, pos->top + 0.5f, pos->right + 0.5f, pos->bottom + 0.5f, al_map_rgb(0, 0, 0), border);
-    
-    return 1;
-} 
-
-
 //insert widget
 static int _insert_widget(ALGUI_WIDGET *wgt, ALGUI_INSERT_WIDGET_MESSAGE *msg) {
     assert(wgt);
@@ -128,8 +201,11 @@ static int _insert_widget(ALGUI_WIDGET *wgt, ALGUI_INSERT_WIDGET_MESSAGE *msg) {
     assert(msg->child);
     msg->ok = algui_insert_tree(&wgt->tree, &msg->child->tree, msg->next ? &msg->next->tree : NULL);
     if (msg->ok) {
-        wgt->screen_rect_valid = 0;
-        _update_visible_and_enabled_tree(wgt);
+        _update_flags(msg->child, wgt->drawn);
+        if (wgt->drawn) {
+            _init_layout(msg->child);
+            _update_layout(wgt);
+        }
     }        
     return 1;
 } 
@@ -142,8 +218,10 @@ static int _remove_widget(ALGUI_WIDGET *wgt, ALGUI_REMOVE_WIDGET_MESSAGE *msg) {
     assert(msg->child);
     msg->ok = algui_remove_tree(&wgt->tree, &msg->child->tree);
     if (msg->ok) {
-        wgt->screen_rect_valid = 0;
-        _update_visible_and_enabled_tree(wgt);
+        _update_flags(msg->child, wgt->drawn);
+        if (wgt->drawn) {
+            _update_layout(wgt);
+        }
     }        
     return 1;
 } 
@@ -155,14 +233,14 @@ static int _set_rect(ALGUI_WIDGET *wgt, ALGUI_SET_RECT_MESSAGE *msg) {
     assert(msg);
     if (algui_is_rect_equal_to_rect(&wgt->rect, &msg->rect)) return 1;
     wgt->rect = msg->rect;
-    wgt->screen_rect_valid = 0;
+    if (wgt->drawn && !_manages_layout(wgt)) _update_layout(wgt);
     return 1;
 } 
 
 
 //set visible
 static int _set_visible(ALGUI_WIDGET *wgt, ALGUI_SET_VISIBLE_MESSAGE *msg) {
-    ALGUI_WIDGET *focus;
+    ALGUI_WIDGET *focus, *parent;
 
     assert(wgt);
     assert(msg);
@@ -179,8 +257,15 @@ static int _set_visible(ALGUI_WIDGET *wgt, ALGUI_SET_VISIBLE_MESSAGE *msg) {
     }
     
     wgt->visible = msg->visible;
-    _update_visible_and_enabled_tree(wgt);
+    _update_flags(wgt, wgt->drawn);
+    
     msg->ok = 1;
+    
+    //if the widget has a parent, then update the layout of the parent
+    if (wgt->drawn) {
+        parent = algui_get_parent_widget(wgt);
+        if (parent) _update_layout(parent);
+    }
     
     return 1;
 } 
@@ -205,7 +290,7 @@ static int _set_enabled(ALGUI_WIDGET *wgt, ALGUI_SET_ENABLED_MESSAGE *msg) {
     }
     
     wgt->enabled = msg->enabled;
-    _update_visible_and_enabled_tree(wgt);
+    _update_flags(wgt, wgt->drawn);
     msg->ok = 1;
     
     return 1;
@@ -216,7 +301,10 @@ static int _set_enabled(ALGUI_WIDGET *wgt, ALGUI_SET_ENABLED_MESSAGE *msg) {
 static int _get_focus(ALGUI_WIDGET *wgt, ALGUI_GET_FOCUS_MESSAGE *msg) {
     assert(wgt);
     assert(msg);
+    
+    //accept getting focus
     msg->ok = 1;
+    
     return 1;
 } 
 
@@ -225,23 +313,10 @@ static int _get_focus(ALGUI_WIDGET *wgt, ALGUI_GET_FOCUS_MESSAGE *msg) {
 static int _lose_focus(ALGUI_WIDGET *wgt, ALGUI_LOSE_FOCUS_MESSAGE *msg) {
     assert(wgt);
     assert(msg);
+    
+    //accept losing focus
     msg->ok = 1;
-    return 1;
-} 
-
-
-//got focus
-static int _got_focus(ALGUI_WIDGET *wgt, ALGUI_GOT_FOCUS_MESSAGE *msg) {
-    assert(wgt);
-    assert(msg);
-    return 1;
-} 
-
-
-//lost focus
-static int _lost_focus(ALGUI_WIDGET *wgt, ALGUI_LOST_FOCUS_MESSAGE *msg) {
-    assert(wgt);
-    assert(msg);
+    
     return 1;
 } 
 
@@ -252,15 +327,13 @@ static int _lost_focus(ALGUI_WIDGET *wgt, ALGUI_LOST_FOCUS_MESSAGE *msg) {
 
 
 /** the default widget procedure.
-    It provides the default implementation for all the basic widget messages.
+    TODO explain which messages it processes.
     @param wgt widget.
     @param msg message.
     @return non-zero if the message was processed, zero otherwise.
  */
 int algui_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
     switch (msg->id) {
-        case ALGUI_MSG_CLEANUP      : return _cleanup(wgt, (ALGUI_CLEANUP_MESSAGE *)msg);
-        case ALGUI_MSG_PAINT        : return _paint(wgt, (ALGUI_PAINT_MESSAGE *)msg);
         case ALGUI_MSG_INSERT_WIDGET: return _insert_widget(wgt, (ALGUI_INSERT_WIDGET_MESSAGE *)msg);
         case ALGUI_MSG_REMOVE_WIDGET: return _remove_widget(wgt, (ALGUI_REMOVE_WIDGET_MESSAGE *)msg);
         case ALGUI_MSG_SET_RECT     : return _set_rect(wgt, (ALGUI_SET_RECT_MESSAGE *)msg);
@@ -268,8 +341,6 @@ int algui_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
         case ALGUI_MSG_SET_ENABLED  : return _set_enabled(wgt, (ALGUI_SET_ENABLED_MESSAGE *)msg);
         case ALGUI_MSG_GET_FOCUS    : return _get_focus(wgt, (ALGUI_GET_FOCUS_MESSAGE *)msg);
         case ALGUI_MSG_LOSE_FOCUS   : return _lose_focus(wgt, (ALGUI_LOSE_FOCUS_MESSAGE *)msg);
-        case ALGUI_MSG_GOT_FOCUS    : return _got_focus(wgt, (ALGUI_GOT_FOCUS_MESSAGE *)msg);
-        case ALGUI_MSG_LOST_FOCUS   : return _lost_focus(wgt, (ALGUI_LOST_FOCUS_MESSAGE *)msg);
     }
     return 0;
 }
@@ -384,6 +455,46 @@ ALGUI_RECT algui_get_widget_rect(ALGUI_WIDGET *wgt) {
 }
 
 
+/** returns the horizontal position of the widget.
+    @param wgt widget to get the coordinate of.
+    @return the horizontal position of the widget.
+ */
+int algui_get_widget_x(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return wgt->rect.left;
+}
+
+
+/** returns the vertical position of the widget.
+    @param wgt widget to get the coordinate of.
+    @return the vertical position of the widget.
+ */
+int algui_get_widget_y(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return wgt->rect.top;
+}
+
+
+/** returns the width of the widget.
+    @param wgt widget to get the size of.
+    @return the width of the widget.
+ */
+int algui_get_widget_width(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return algui_get_rect_width(&wgt->rect);
+}
+
+
+/** returns the height of the widget.
+    @param wgt widget to get the size of.
+    @return the height of the widget.
+ */
+int algui_get_widget_height(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return algui_get_rect_height(&wgt->rect);
+}
+
+
 /** returns the screen rectangle of a widget.
     @param wgt widget to get the rectangle of.
     @return the widget's rectangle.
@@ -431,7 +542,7 @@ int algui_is_widget_tree_enabled(ALGUI_WIDGET *wgt) {
  */
 int algui_has_widget_focus(ALGUI_WIDGET *wgt) {
     assert(wgt);
-    return wgt->has_focus;
+    return wgt->focus;
 }
 
 
@@ -442,7 +553,7 @@ int algui_has_widget_focus(ALGUI_WIDGET *wgt) {
 ALGUI_WIDGET *algui_get_focus_widget(ALGUI_WIDGET *wgt) {
     ALGUI_WIDGET *child, *result;
     assert(wgt);
-    if (wgt->has_focus) return wgt;
+    if (wgt->focus) return wgt;
     for(child = algui_get_highest_child_widget(wgt); child; child = algui_get_lower_sibling_widget(child)) {
         result = algui_get_focus_widget(child);
         if (result) return result;
@@ -466,8 +577,9 @@ void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc) {
     wgt->visible_tree = 1;
     wgt->enabled = 1;
     wgt->enabled_tree = 1;
-    wgt->screen_rect_valid = 0;    
-    wgt->has_focus = 0;
+    wgt->focus = 0;
+    wgt->layout = 0;
+    wgt->drawn = 0;
 }
 
 
@@ -509,13 +621,11 @@ void algui_translate_rect(ALGUI_WIDGET *src, ALGUI_RECT *src_rct, ALGUI_WIDGET *
 
     //translate coordinates from source to screen    
     if (src) {
-        _update_screen_rect(src);
         algui_offset_rect(&tmp, src->screen_rect.left, src->screen_rect.top);
     }
     
     //translate coordinates from screen to destination
     if (dst) {
-        _update_screen_rect(dst);
         algui_offset_rect(&tmp, -dst->screen_rect.left, -dst->screen_rect.top);
     }
     
@@ -553,7 +663,6 @@ void algui_draw_widget_rect(ALGUI_WIDGET *wgt, ALGUI_RECT *rct) {
  */
 void algui_draw_widget(ALGUI_WIDGET *wgt) {
     assert(wgt);
-    _update_screen_rect(wgt);
     _draw(wgt, &wgt->screen_rect);
 }
 
@@ -785,13 +894,13 @@ int algui_set_focus_widget(ALGUI_WIDGET *wgt) {
         if (!lose_focus_msg.ok) return 0;
 
         //notify the previous widget that it has lost the input focus
-        prev->has_focus = 0;
+        prev->focus = 0;
         lost_focus_msg.message.id = ALGUI_MSG_LOST_FOCUS;
         algui_send_message(wgt, &lost_focus_msg.message);
     }
 
     //notify the current widget that it has the input focus
-    wgt->has_focus = 1;
+    wgt->focus = 1;
     got_focus_msg.message.id = ALGUI_MSG_GOT_FOCUS;
     algui_send_message(wgt, &got_focus_msg.message);
         

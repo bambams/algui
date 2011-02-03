@@ -41,6 +41,12 @@ typedef enum ALGUI_MSG_ID {
     ///widget lost the input focus.
     ALGUI_MSG_LOST_FOCUS,
     
+    ///inform widget to set its preferred rectangle.
+    ALGUI_MSG_SET_PREFERRED_RECT,
+    
+    ///inform widget to position its children.
+    ALGUI_MSG_DO_LAYOUT,
+    
     ///1st user message
     ALGUI_MSG_USER = 0x10000
 } ALGUI_MSG_ID; 
@@ -184,6 +190,22 @@ typedef struct ALGUI_LOST_FOCUS_MESSAGE {
 } ALGUI_LOST_FOCUS_MESSAGE;
 
 
+/** the set-preferred rect message.
+ */
+typedef struct ALGUI_SET_PREFERRED_RECT_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;
+} ALGUI_SET_PREFERRED_RECT_MESSAGE;
+
+
+/** the do-layout message.
+ */
+typedef struct ALGUI_DO_LAYOUT_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;
+} ALGUI_DO_LAYOUT_MESSAGE;
+
+
 /** union of all messages.
  */
 typedef union ALGUI_MESSAGE_UNION {
@@ -222,6 +244,12 @@ typedef union ALGUI_MESSAGE_UNION {
     
     //lost focus message
     ALGUI_LOST_FOCUS_MESSAGE lost_focus;
+    
+    //set preferred rect message
+    ALGUI_SET_PREFERRED_RECT_MESSAGE set_preferred_rect;
+    
+    //do layout message
+    ALGUI_DO_LAYOUT_MESSAGE do_layout;    
 } ALGUI_MESSAGE_UNION;
 
 

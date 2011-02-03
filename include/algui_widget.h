@@ -25,13 +25,14 @@ typedef struct ALGUI_WIDGET {
     int visible_tree:1;
     int enabled:1;
     int enabled_tree:1;
-    int screen_rect_valid:1;
-    int has_focus:1;
+    int focus:1;
+    int layout:1;
+    int drawn:1;
 } ALGUI_WIDGET;
 
 
 /** the default widget procedure.
-    It provides the default implementation for all the basic widget messages.
+    TODO explain which messages it processes.
     @param wgt widget.
     @param msg message.
     @return non-zero if the message was processed, zero otherwise.
@@ -106,6 +107,34 @@ ALGUI_WIDGET *algui_get_root_widget(ALGUI_WIDGET *wgt);
     @return the widget's rectangle.
  */
 ALGUI_RECT algui_get_widget_rect(ALGUI_WIDGET *wgt); 
+
+
+/** returns the horizontal position of the widget.
+    @param wgt widget to get the coordinate of.
+    @return the horizontal position of the widget.
+ */
+int algui_get_widget_x(ALGUI_WIDGET *wgt); 
+
+
+/** returns the vertical position of the widget.
+    @param wgt widget to get the coordinate of.
+    @return the vertical position of the widget.
+ */
+int algui_get_widget_y(ALGUI_WIDGET *wgt); 
+
+
+/** returns the width of the widget.
+    @param wgt widget to get the size of.
+    @return the width of the widget.
+ */
+int algui_get_widget_width(ALGUI_WIDGET *wgt); 
+
+
+/** returns the height of the widget.
+    @param wgt widget to get the size of.
+    @return the height of the widget.
+ */
+int algui_get_widget_height(ALGUI_WIDGET *wgt); 
 
 
 /** returns the screen rectangle of a widget.
