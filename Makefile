@@ -19,12 +19,16 @@ LIBOBJS = ${OBJDIR}/algui_list.o \
           ${OBJDIR}/algui_widget.o
 PROGRAM = ${BINDIR}/example
 
-.PHONY: all clean run
+.PHONY: all clean library program run
 
 all: ${BINDIR} ${LIBDIR} ${OBJDIR} ${LIBRARY} ${PROGRAM} 
 
 clean:
 	${REMOVE} ${BINDIR} ${LIBDIR} ${OBJDIR}
+
+library: ${LIBDIR} ${OBJDIR} ${LIBRARY}
+
+program: ${BINDIR} library ${PROGRAM}
 
 run: all
 	LD_LIBRARY_PATH=${LIBDIR} ${PROGRAM}
