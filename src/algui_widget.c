@@ -321,6 +321,20 @@ static int _lose_focus(ALGUI_WIDGET *wgt, ALGUI_LOSE_FOCUS_MESSAGE *msg) {
 } 
 
 
+//hit test message
+static int _hit_test(ALGUI_WIDGET *wgt, ALGUI_HIT_TEST_MESSAGE *msg) {
+    assert(wgt);
+    assert(msg);
+    
+    //accept the hit test if the point is inside the widget
+    msg->ok = 
+        msg->x >= 0 && msg->x < algui_get_widget_width(wgt) &&
+        msg->y >= 0 && msg->y < algui_get_widget_height(wgt);
+    
+    return 1;
+} 
+
+
 /******************************************************************************
     PUBLIC
  ******************************************************************************/
@@ -341,6 +355,7 @@ int algui_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
         case ALGUI_MSG_SET_ENABLED  : return _set_enabled(wgt, (ALGUI_SET_ENABLED_MESSAGE *)msg);
         case ALGUI_MSG_GET_FOCUS    : return _get_focus(wgt, (ALGUI_GET_FOCUS_MESSAGE *)msg);
         case ALGUI_MSG_LOSE_FOCUS   : return _lose_focus(wgt, (ALGUI_LOSE_FOCUS_MESSAGE *)msg);
+        case ALGUI_MSG_HIT_TEST     : return _hit_test(wgt, (ALGUI_HIT_TEST_MESSAGE *)msg);
     }
     return 0;
 }
@@ -540,7 +555,7 @@ int algui_is_widget_tree_enabled(ALGUI_WIDGET *wgt) {
     @param wgt widget to get the focus status of.
     @return non-zero if the widget has the focus, zero otherwise.
  */
-int algui_has_widget_focus(ALGUI_WIDGET *wgt) {
+int algui_widget_has_focus(ALGUI_WIDGET *wgt) {
     assert(wgt);
     return wgt->focus;
 }
@@ -559,6 +574,73 @@ ALGUI_WIDGET *algui_get_focus_widget(ALGUI_WIDGET *wgt) {
         if (result) return result;
     }
     return NULL;
+}
+
+
+/** returns true if the given widget has the mouse.
+    @param wgt widget to get the mouse status of.
+    @return non-zero if the widget has the mouse, zero otherwise.
+ */
+int algui_widget_has_mouse(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return wgt->mouse;
+}
+
+
+/** get the widget that has the mouse.
+    @param wgt widget to start the search from.
+    @return the widget that has the mouse or NULL if no widget has the mouse.
+ */
+ALGUI_WIDGET *algui_get_mouse_widget(ALGUI_WIDGET *wgt) {
+    ALGUI_WIDGET *child, *result;
+    assert(wgt);
+    if (wgt->mouse) return wgt;
+    for(child = algui_get_highest_child_widget(wgt); child; child = algui_get_lower_sibling_widget(child)) {
+        result = algui_get_mouse_widget(child);
+        if (result) return result;
+    }
+    return NULL;
+}
+
+
+/** returns the widget that is under the given point.
+    Widgets receive a hit-test message.
+    Invisible widgets are ignored.
+    @param wgt root of widget tree to search.
+    @param x horizontal coordinate, relative to the given widget.
+    @param y vertical coordinate, relative to the given widget.
+    @return the widget under the given coordinates, or NULL if there is one.
+ */
+ALGUI_WIDGET *algui_get_widget_from_point(ALGUI_WIDGET *wgt, int x, int y) {
+    ALGUI_WIDGET *child, *result;
+    ALGUI_HIT_TEST_MESSAGE msg;
+
+    assert(wgt);
+    
+    //if the widget is not visible, or if the coordinates lie beyond the widget's rect, then do nothing
+    if (!wgt->visible_tree || 
+        x < 0 || 
+        x >= algui_get_widget_width(wgt) || 
+        y < 0 || 
+        y >= algui_get_widget_height(wgt))
+    {        
+        return NULL;
+    }        
+    
+    //search the children, from higher to lower
+    for(child = algui_get_highest_child_widget(wgt); child; child = algui_get_lower_sibling_widget(child)) {
+        result = algui_get_widget_from_point(child, x - child->rect.left, y - child->rect.top);
+        if (result) return result;
+    }
+    
+    //ask the widget
+    msg.message.id = ALGUI_MSG_HIT_TEST;
+    msg.x = x;
+    msg.y = y;
+    msg.ok = 0;
+    algui_send_message(wgt, &msg.message);
+    
+    return msg.ok ? wgt : NULL;
 }
 
 
@@ -935,4 +1017,13 @@ int algui_set_focus_widget(ALGUI_WIDGET *wgt) {
         
     //success
     return 1;
+}
+
+
+/** dispatch an Allegro event to a widget tree.
+    @param wgt root of widget tree to dispatch the event to.
+    @param ev allegro event.
+ */
+void algui_dispatch_event(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    //TODO
 }

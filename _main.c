@@ -7,8 +7,8 @@
 
 static int _paint(ALGUI_WIDGET *wgt, ALGUI_PAINT_MESSAGE *msg) {
     ALGUI_RECT *pos = &msg->widget_rect;
-    ALLEGRO_COLOR bg = algui_has_widget_focus(wgt) ? al_map_rgb(255, 255, 0) : al_map_rgb(255, 255, 255);
-    int border = algui_has_widget_focus(wgt) ? 3 : 1;
+    ALLEGRO_COLOR bg = algui_widget_has_focus(wgt) ? al_map_rgb(255, 255, 0) : al_map_rgb(255, 255, 255);
+    int border = algui_widget_has_focus(wgt) ? 3 : 1;
     al_draw_filled_rectangle(pos->left + 0.5f, pos->top + 0.5f, pos->right + 0.5f, pos->bottom + 0.5f, bg);
     al_draw_rectangle(pos->left + 0.5f, pos->top + 0.5f, pos->right + 0.5f, pos->bottom + 0.5f, al_map_rgb(0, 0, 0), border);    
     return 1;

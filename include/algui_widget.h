@@ -2,6 +2,7 @@
 #define ALGUI_WIDGET_H
 
 
+#include <allegro5/allegro.h>
 #include "algui_message.h"
 #include "algui_tree.h"
 
@@ -21,13 +22,14 @@ typedef struct ALGUI_WIDGET {
     ALGUI_TREE tree;
     ALGUI_RECT rect;
     ALGUI_RECT screen_rect;
+    int drawn:1;
+    int layout:1;
     int visible:1;
     int visible_tree:1;
     int enabled:1;
     int enabled_tree:1;
     int focus:1;
-    int layout:1;
-    int drawn:1;
+    int mouse:1;
 } ALGUI_WIDGET;
 
 
@@ -170,7 +172,7 @@ int algui_is_widget_tree_enabled(ALGUI_WIDGET *wgt);
     @param wgt widget to get the focus status of.
     @return non-zero if the widget has the focus, zero otherwise.
  */
-int algui_has_widget_focus(ALGUI_WIDGET *wgt);
+int algui_widget_has_focus(ALGUI_WIDGET *wgt);
 
 
 /** get the widget that has the focus.
@@ -178,6 +180,31 @@ int algui_has_widget_focus(ALGUI_WIDGET *wgt);
     @return the widget that has the focus or NULL if no widget has the focus.
  */
 ALGUI_WIDGET *algui_get_focus_widget(ALGUI_WIDGET *wgt); 
+
+
+/** returns true if the given widget has the mouse.
+    @param wgt widget to get the mouse status of.
+    @return non-zero if the widget has the mouse, zero otherwise.
+ */
+int algui_widget_has_mouse(ALGUI_WIDGET *wgt);
+
+
+/** get the widget that has the mouse.
+    @param wgt widget to start the search from.
+    @return the widget that has the mouse or NULL if no widget has the mouse.
+ */
+ALGUI_WIDGET *algui_get_mouse_widget(ALGUI_WIDGET *wgt); 
+
+
+/** returns the widget that is under the given point.
+    Widgets receive a hit-test message.
+    Invisible widgets are ignored.
+    @param wgt root of widget tree to search.
+    @param x horizontal coordinate, relative to the given widget.
+    @param y vertical coordinate, relative to the given widget.
+    @return the widget under the given coordinates, or NULL if there is one.
+ */
+ALGUI_WIDGET *algui_get_widget_from_point(ALGUI_WIDGET *wgt, int x, int y); 
 
 
 /** initializes a widget structure.
@@ -372,6 +399,13 @@ void algui_set_widget_proc(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc);
     @return non-zero if the operation is successful, zero otherwise.
  */
 int algui_set_focus_widget(ALGUI_WIDGET *wgt); 
+
+
+/** dispatch an Allegro event to a widget tree.
+    @param wgt root of widget tree to dispatch the event to.
+    @param ev allegro event.
+ */
+void algui_dispatch_event(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev); 
 
 
 #endif //ALGUI_WIDGET_H
