@@ -202,6 +202,17 @@ void algui_cleanup_widget(ALGUI_WIDGET *wgt);
 void algui_destroy_widget(ALGUI_WIDGET *wgt);
 
 
+/** translates a point from the coordinate system of one widget to the other.
+    @param src source widget; if null, the input point is considered to be in screen coordinates.
+    @param src_x input x in the source coordinate system; can be the source.
+    @param src_y input y in the source coordinate system; can be the source.
+    @param dst destination widget; if null, the output point is considered to be in screen coordinates.
+    @param dst_x output x in the destination coordinate system; can be the source.
+    @param dst_y output y in the destination coordinate system; can be the source.
+ */
+void algui_translate_point(ALGUI_WIDGET *src, int src_x, int src_y, ALGUI_WIDGET *dst, int *dst_x, int *dst_y); 
+
+
 /** translates a rectangle from the coordinate system of one widget to the other.
     @param src source widget; if null, the input rect is considered to be in screen coordinates.
     @param src_rct source rectangle.
