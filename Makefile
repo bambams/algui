@@ -19,12 +19,21 @@ LIBOBJS = ${OBJDIR}/algui_list.o \
           ${OBJDIR}/algui_widget.o
 PROGRAM = ${BINDIR}/example
 
-.PHONY: all clean library program run
+.PHONY: all clean help library program run
 
 all: ${BINDIR} ${LIBDIR} ${OBJDIR} ${LIBRARY} ${PROGRAM} 
 
 clean:
 	${REMOVE} ${BINDIR} ${LIBDIR} ${OBJDIR}
+
+help:
+	@echo 'Available targets:' && \
+	echo '    all: Build library and example program.' && \
+	echo '    clean: Remove generated files and directories.' && \
+	echo '    help: Show this message.' && \
+	echo '    library: Build the shared object library.' && \
+	echo '    program: Build library and example program.' && \
+	echo '    run: Build library and example and run example.'
 
 library: ${LIBDIR} ${OBJDIR} ${LIBRARY}
 
