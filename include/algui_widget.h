@@ -343,6 +343,17 @@ void algui_move_widget(ALGUI_WIDGET *wgt, int x, int y);
 void algui_resize_widget(ALGUI_WIDGET *wgt, int w, int h); 
 
 
+/** Calculates the layout of the given widget and its children.
+    This may lead to further changes in other widgets up and down the tree, depending on layout.
+    This function may be invoked after a widget modifies a visual attribute
+    that changes the widget's position or size.
+    There is no need to invoke this function before drawing the widgets
+    for the first time; they will be packed automatically.
+    @param wgt widget to start the layout management from.
+ */
+void algui_pack_widget(ALGUI_WIDGET *wgt); 
+
+
 /** sets the widget's visible state.
     The widget receives the set-visible message.
     @param wgt widget.

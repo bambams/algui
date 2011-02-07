@@ -331,6 +331,9 @@ typedef struct ALGUI_MOUSE_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;
     
+    ///timestamp, same as in allegro event
+    double timestamp;
+    
     ///screen mouse x
     int screen_x;
     
@@ -408,6 +411,9 @@ typedef struct ALGUI_KEY_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
+    ///timestamp, same as in allegro event
+    double timestamp;
+    
     ///key code.
     int keycode;
 } ALGUI_KEY_MESSAGE;  
@@ -435,6 +441,9 @@ typedef struct ALGUI_KEY_CHAR_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
+    ///timestamp, same as in allegro event
+    double timestamp;
+    
     ///key code
     int keycode;
     
@@ -458,6 +467,9 @@ typedef ALGUI_KEY_CHAR_MESSAGE ALGUI_UNUSED_KEY_CHAR_MESSAGE;
 typedef struct ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;
+    
+    ///timestamp, same as in allegro event
+    double timestamp;
     
     ///screen mouse x
     int screen_x;
@@ -525,6 +537,9 @@ typedef struct ALGUI_DRAG_AND_DROP_KEY_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
+    ///timestamp, same as in allegro event
+    double timestamp;
+    
     ///key code.
     int keycode;
         
@@ -546,6 +561,9 @@ typedef ALGUI_DRAG_AND_DROP_KEY_MESSAGE ALGUI_DRAG_KEY_UP_MESSAGE;
 typedef struct ALGUI_DRAG_KEY_CHAR_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
+    
+    ///timestamp, same as in allegro event
+    double timestamp;
     
     ///key code
     int keycode;

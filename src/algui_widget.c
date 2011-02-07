@@ -291,6 +291,7 @@ static ALGUI_WIDGET *_get_mouse_widget(ALGUI_WIDGET *wgt) {
 //sets a key char message from an event
 static void _set_key_char_message(ALGUI_KEY_CHAR_MESSAGE *msg, int id, ALLEGRO_EVENT *ev) {
     msg->message.id = id;
+    msg->timestamp = ev->any.timestamp;
     msg->keycode = ev->keyboard.keycode;
     msg->unichar = ev->keyboard.unichar;
     msg->modifiers = ev->keyboard.modifiers;
@@ -301,6 +302,7 @@ static void _set_key_char_message(ALGUI_KEY_CHAR_MESSAGE *msg, int id, ALLEGRO_E
 //sets a mouse message structure from an event
 static void _set_mouse_message(ALGUI_WIDGET *wgt, ALGUI_MOUSE_MESSAGE *msg, int id, ALLEGRO_EVENT *ev) {
     msg->message.id = id;
+    msg->timestamp = ev->any.timestamp;
     msg->screen_x = ev->mouse.x;
     msg->screen_y = ev->mouse.y;
     msg->z = ev->mouse.z;
@@ -331,6 +333,7 @@ static ALGUI_WIDGET *_get_data_source(ALGUI_WIDGET *wgt) {
 //sets a drag message structure from an event
 static void _set_drag_message(ALGUI_WIDGET *wgt, ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE *msg, int id, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     msg->message.id = id;
+    msg->timestamp = ev->any.timestamp;
     msg->screen_x = ev->mouse.x;
     msg->screen_y = ev->mouse.y;
     msg->z = ev->mouse.z;
@@ -509,6 +512,7 @@ static void _event_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     if (focus) {
         //prepare the keydown message
         key_down_msg.message.id = ALGUI_MSG_KEY_DOWN;
+        key_down_msg.timestamp = ev->any.timestamp;
         key_down_msg.keycode = ev->keyboard.keycode;
 
         //if the focus widget processes the message, then do nothing else        
@@ -517,6 +521,7 @@ static void _event_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     
     //prepare the unused key down message
     unused_key_down_msg.message.id = ALGUI_MSG_UNUSED_KEY_DOWN;
+    unused_key_down_msg.timestamp = ev->any.timestamp;
     unused_key_down_msg.keycode = ev->keyboard.keycode;
     
     //dispatch the unused key down message
@@ -542,6 +547,7 @@ static void _event_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     if (focus) {
         //prepare the keyup message
         key_up_msg.message.id = ALGUI_MSG_KEY_UP;
+        key_up_msg.timestamp = ev->any.timestamp;
         key_up_msg.keycode = ev->keyboard.keycode;
 
         //if the focus widget processes the message, then do nothing else        
@@ -550,6 +556,7 @@ static void _event_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     
     //prepare the unused key up message
     unused_key_up_msg.message.id = ALGUI_MSG_UNUSED_KEY_UP;
+    unused_key_up_msg.timestamp = ev->any.timestamp;
     unused_key_up_msg.keycode = ev->keyboard.keycode;
     
     //dispatch the unused key up message
@@ -839,6 +846,7 @@ static void _event_drag_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WID
     
     //prepare the message
     msg.message.id = ALGUI_MSG_DRAG_KEY_DOWN;
+    msg.timestamp = ev->any.timestamp;
     msg.keycode = ev->keyboard.keycode;
     msg.source = source;
     
@@ -863,6 +871,7 @@ static void _event_drag_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGE
     
     //prepare the message
     msg.message.id = ALGUI_MSG_DRAG_KEY_UP;
+    msg.timestamp = ev->any.timestamp;
     msg.keycode = ev->keyboard.keycode;
     msg.source = source;
     
@@ -887,6 +896,7 @@ static void _event_drag_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WID
     
     //prepare the message
     msg.message.id = ALGUI_MSG_DRAG_KEY_CHAR;
+    msg.timestamp = ev->any.timestamp;
     msg.keycode = ev->keyboard.keycode;
     msg.unichar = ev->keyboard.unichar;
     msg.modifiers = ev->keyboard.modifiers;
@@ -1623,6 +1633,20 @@ void algui_resize_widget(ALGUI_WIDGET *wgt, int w, int h) {
     ALGUI_RECT rct = algui_get_widget_rect(wgt);
     algui_resize_rect(&rct, w, h);
     algui_set_widget_rect(wgt, &rct);
+}
+
+
+/** Calculates the layout of the given widget and its children.
+    This may lead to further changes in other widgets up and down the tree, depending on layout.
+    This function may be invoked after a widget modifies a visual attribute
+    that changes the widget's position or size.
+    There is no need to invoke this function before drawing the widgets
+    for the first time; they will be packed automatically.
+    @param wgt widget to start the layout management from.
+ */
+void algui_pack_widget(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    _update_layout(wgt);
 }
 
 
