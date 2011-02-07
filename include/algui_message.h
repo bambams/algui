@@ -139,6 +139,9 @@ typedef enum ALGUI_MSG_ID {
         
     ///ended drag and drop.
     ALGUI_MSG_DRAG_AND_DROP_ENDED,
+    
+    ///timer event
+    ALGUI_MSG_TIMER,
         
     ///1st user message
     ALGUI_MSG_USER = 0x10000
@@ -631,6 +634,19 @@ typedef struct ALGUI_DRAG_AND_DROP_ENDED_MESSAGE {
 } ALGUI_DRAG_AND_DROP_ENDED_MESSAGE;
 
 
+///timer message.
+typedef struct ALGUI_TIMER_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///timestamp, same as in allegro event
+    double timestamp;
+        
+    ///allegro timer
+    ALLEGRO_TIMER *timer;
+} ALGUI_TIMER_MESSAGE;
+
+
 /** union of all messages.
  */
 typedef union ALGUI_MESSAGE_UNION {
@@ -768,6 +784,9 @@ typedef union ALGUI_MESSAGE_UNION {
     
     ///drag-and-drop ended
     ALGUI_DRAG_AND_DROP_ENDED_MESSAGE drag_and_drop_ended;
+    
+    ///timer evnet
+    ALGUI_TIMER_MESSAGE timer;
 } ALGUI_MESSAGE_UNION;
 
 

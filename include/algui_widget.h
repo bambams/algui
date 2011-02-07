@@ -12,7 +12,7 @@
     @param msg message.
     @return non-zero if message was processed, zero otherwise.
  */
-typedef int (*ALGUI_WIDGET_PROC)(struct ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg); 
+typedef int (*ALGUI_WIDGET_PROC)(struct ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg);
 
 
 /** base struct for widgets.
@@ -22,6 +22,7 @@ typedef struct ALGUI_WIDGET {
     ALGUI_TREE tree;
     ALGUI_RECT rect;
     ALGUI_RECT screen_rect;
+    ALGUI_LIST timers;
     int capture:8;
     int drawn:1;
     int layout:1;
@@ -502,6 +503,30 @@ int algui_query_dragged_data(ALGUI_WIDGET *source, const char *format, ALGUI_DRA
         The source widget must supply a copy of the data, which is freed by the destination widget.
  */
 void *algui_get_dragged_data(ALGUI_WIDGET *source, const char *format, ALGUI_DRAG_AND_DROP_TYPE type); 
+
+
+/** creates and starts an allegro timer for a widget.
+    @param wgt widget to add the timer to.
+    @param secs seconds, in timeout.
+    @param queue event queue to associate the timer with.
+    @return the allegro timer or NULL if the timer could not be created.
+ */
+ALLEGRO_TIMER *algui_create_widget_timer(ALGUI_WIDGET *wgt, double secs, ALLEGRO_EVENT_QUEUE *queue);
+
+
+/** stops, removes and destroys an allegro timer from a widget.
+    @param wgt widget to remove the timer from.
+    @param timer allegro timer to remove from the widget and then destroy.
+    @return non-zero if the operation is successful, zero otherwise.
+ */
+int algui_destroy_widget_timer(ALGUI_WIDGET *wgt, ALLEGRO_TIMER *timer);
+
+
+/** stops, removes and destroys all timers in a widget.
+    This function is called automatically from the default cleanup message handler.
+    @param wgt widget to remove the timers from.
+ */
+void algui_destroy_widget_timers(ALGUI_WIDGET *wgt);
 
 
 #endif //ALGUI_WIDGET_H

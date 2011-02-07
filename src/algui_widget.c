@@ -13,8 +13,8 @@
 #define _LEFT_BUTTON         1
 #define _RIGHT_BUTTON        2
 #define _MIDDLE_BUTTON       3 
- 
- 
+
+
 /******************************************************************************
     INTERNAL FUNCTIONS
  ******************************************************************************/
@@ -345,10 +345,37 @@ static void _set_drag_message(ALGUI_WIDGET *wgt, ALGUI_DRAG_AND_DROP_MOUSE_MESSA
 }
 
 
+//locates the node of a timer
+static ALGUI_LIST_NODE *_find_timer(ALGUI_LIST *timers, ALLEGRO_TIMER *timer) {
+    ALGUI_LIST_NODE *node;    
+    for(node = algui_get_first_list_node(timers); node; node = algui_get_next_list_node(node)) {
+        if (node->data == timer) return node;
+    }
+    return NULL;
+}
+
+
+//removes a timer node from a timer list, stops and destroys the timer,
+//and then free the node
+static void _destroy_timer(ALGUI_LIST *timers, ALGUI_LIST_NODE *node) {
+    ALLEGRO_TIMER *timer = (ALLEGRO_TIMER *)algui_get_list_node_data(node);
+    al_destroy_timer(timer);
+    algui_remove_list_node(timers, node);
+    al_free(node);
+}
+
+
 /******************************************************************************
     INTERNAL MESSAGE HANDLERS
  ******************************************************************************/
      
+
+//cleanup widget
+static int _msg_cleanup(ALGUI_WIDGET *wgt, ALGUI_CLEANUP_MESSAGE *msg) {
+    algui_destroy_widget_timers(wgt);
+    return 1;
+} 
+
 
 //insert widget
 static int _msg_insert_widget(ALGUI_WIDGET *wgt, ALGUI_INSERT_WIDGET_MESSAGE *msg) {
@@ -773,63 +800,6 @@ static void _event_window_activated(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
 }
 
 
-//normal event dispatch
-static void _event_dispatch(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
-    switch (ev->type) {
-        //key down
-        case ALLEGRO_EVENT_KEY_DOWN:
-            _event_key_down(wgt, ev);
-            break;
-        
-        //key up
-        case ALLEGRO_EVENT_KEY_UP:
-            _event_key_up(wgt, ev);
-            break;
-        
-        //key char
-        case ALLEGRO_EVENT_KEY_CHAR:
-            _event_key_char(wgt, ev);
-            break;
-        
-        //mouse moved
-        case ALLEGRO_EVENT_MOUSE_AXES:
-        case ALLEGRO_EVENT_MOUSE_WARPED:
-            if (ev->mouse.dx || ev->mouse.dy) {
-                _event_mouse_move(wgt, ev);
-            }
-            if (ev->mouse.dz || ev->mouse.dw) {
-                _event_mouse_wheel(wgt, ev);
-            }
-            break;
-        
-        //button down
-        case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
-            _event_button_down(wgt, ev);
-            break;
-        
-        //button up
-        case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-            _event_button_up(wgt, ev);
-            break;
-        
-        //expose
-        case ALLEGRO_EVENT_DISPLAY_EXPOSE:
-            _event_expose(wgt, ev);
-            break;
-        
-        //window deactivated
-        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
-            _event_window_deactivated(wgt, ev);
-            break;
-        
-        //window activated
-        case ALLEGRO_EVENT_DISPLAY_SWITCH_IN:
-            _event_window_activated(wgt, ev);
-            break;
-    }
-}
-
-
 //dispatch the relevant event
 static void _event_drag_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     ALGUI_WIDGET *capture, *mouse;
@@ -1021,6 +991,111 @@ static void _event_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *sour
 }
 
 
+//timer event
+static int  _event_timer(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    ALGUI_LIST_NODE *node;
+    ALGUI_TIMER_MESSAGE msg;
+    ALGUI_WIDGET *child;
+    
+    //find the node that corresponds to the timer
+    node = _find_timer(&wgt->timers, ev->timer.source);
+    
+    //if found, dispatch the event to the widget
+    if (node) {
+        //prepare the message
+        msg.message.id = ALGUI_MSG_TIMER;
+        msg.timestamp = ev->any.timestamp;
+        msg.timer = ev->timer.source;
+        
+        //send the message
+        _send_message_to_enabled(wgt, &msg.message);
+        
+        //timer event processed
+        return 1;
+    }
+    
+    //try the children
+    for(child = algui_get_highest_child_widget(wgt); child; child = algui_get_lower_sibling_widget(child)) {
+        if (_event_timer(child, ev)) return 1;
+    }
+    
+    //timer event not processed
+    return 0;
+}
+
+
+//default event dispatch
+static void _event_dispatch_default(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    switch (ev->type) {        
+        //expose
+        case ALLEGRO_EVENT_DISPLAY_EXPOSE:
+            _event_expose(wgt, ev);
+            break;
+        
+        //window deactivated
+        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+            _event_window_deactivated(wgt, ev);
+            break;
+        
+        //window activated
+        case ALLEGRO_EVENT_DISPLAY_SWITCH_IN:
+            _event_window_activated(wgt, ev);
+            break;
+            
+        //timer
+        case ALLEGRO_EVENT_TIMER:
+            _event_timer(wgt, ev);
+            break;            
+    }
+}
+
+
+//normal event dispatch
+static void _event_dispatch(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    switch (ev->type) {
+        //key down
+        case ALLEGRO_EVENT_KEY_DOWN:
+            _event_key_down(wgt, ev);
+            break;
+        
+        //key up
+        case ALLEGRO_EVENT_KEY_UP:
+            _event_key_up(wgt, ev);
+            break;
+        
+        //key char
+        case ALLEGRO_EVENT_KEY_CHAR:
+            _event_key_char(wgt, ev);
+            break;
+        
+        //mouse moved
+        case ALLEGRO_EVENT_MOUSE_AXES:
+        case ALLEGRO_EVENT_MOUSE_WARPED:
+            if (ev->mouse.dx || ev->mouse.dy) {
+                _event_mouse_move(wgt, ev);
+            }
+            if (ev->mouse.dz || ev->mouse.dw) {
+                _event_mouse_wheel(wgt, ev);
+            }
+            break;
+        
+        //button down
+        case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
+            _event_button_down(wgt, ev);
+            break;
+        
+        //button up
+        case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
+            _event_button_up(wgt, ev);
+            break;
+            
+        //default dispatch            
+        default:
+            _event_dispatch_default(wgt, ev);            
+    }            
+}
+
+
 //drag and drop dispatch
 static void _event_dispatch_drag_and_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     switch (ev->type) {
@@ -1054,16 +1129,10 @@ static void _event_dispatch_drag_and_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, 
         case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
             _event_drop(wgt, ev, source);
             break;
-        
-        //expose
-        case ALLEGRO_EVENT_DISPLAY_EXPOSE:
-            _event_expose(wgt, ev);
-            break;
-        
-        //window deactivated
-        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
-            algui_end_drag_and_drop(source);
-            break;
+            
+        //default dispatch            
+        default:
+            _event_dispatch_default(wgt, ev);            
     }
 }
 
@@ -1081,6 +1150,7 @@ static void _event_dispatch_drag_and_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, 
  */
 int algui_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
     switch (msg->id) {
+        case ALGUI_MSG_CLEANUP      : return _msg_cleanup(wgt, (ALGUI_CLEANUP_MESSAGE *)msg);
         case ALGUI_MSG_INSERT_WIDGET: return _msg_insert_widget(wgt, (ALGUI_INSERT_WIDGET_MESSAGE *)msg);
         case ALGUI_MSG_REMOVE_WIDGET: return _msg_remove_widget(wgt, (ALGUI_REMOVE_WIDGET_MESSAGE *)msg);
         case ALGUI_MSG_SET_RECT     : return _msg_set_rect(wgt, (ALGUI_SET_RECT_MESSAGE *)msg);
@@ -1406,6 +1476,7 @@ void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc) {
     algui_init_tree(&wgt->tree, wgt);
     algui_set_rect(&wgt->rect, 0, 0, 0, 0);
     algui_set_rect(&wgt->screen_rect, 0, 0, 0, 0);
+    algui_init_list(&wgt->timers);
     wgt->capture = 0;
     wgt->visible = 1;
     wgt->visible_tree = 1;
@@ -1426,7 +1497,7 @@ void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc) {
 void algui_cleanup_widget(ALGUI_WIDGET *wgt) {
     ALGUI_CLEANUP_MESSAGE msg;
     msg.message.id = ALGUI_MSG_CLEANUP;
-    algui_send_message(wgt, &msg.message);
+    algui_broadcast_message(wgt, &msg.message);
 }
 
 
@@ -1946,4 +2017,58 @@ void *algui_get_dragged_data(ALGUI_WIDGET *source, const char *format, ALGUI_DRA
     msg.data = NULL;
     algui_send_message(source, &msg.message);
     return msg.data;
+}
+
+
+/** creates and starts an allegro timer for a widget.
+    @param wgt widget to add the timer to.
+    @param secs seconds, in timeout.
+    @param queue event queue to associate the timer with.
+    @return the allegro timer or NULL if the timer could not be created.
+ */
+ALLEGRO_TIMER *algui_create_widget_timer(ALGUI_WIDGET *wgt, double secs, ALLEGRO_EVENT_QUEUE *queue) {
+    ALGUI_LIST_NODE *node;
+    ALLEGRO_TIMER *timer;
+    assert(wgt);
+    assert(secs > 0);
+    assert(queue);
+    timer = al_create_timer(secs);
+    if (!timer) return NULL;
+    node = (ALGUI_LIST_NODE *)al_malloc(sizeof(ALGUI_LIST_NODE));
+    assert(node);
+    algui_init_list_node(node, timer);
+    algui_append_list_node(&wgt->timers, node);
+    al_register_event_source(queue, al_get_timer_event_source(timer));
+    al_start_timer(timer);
+    return timer;
+}
+
+
+/** stops, removes and destroys an allegro timer from a widget.
+    @param wgt widget to remove the timer from.
+    @param timer allegro timer to remove from the widget and then destroy.
+    @return non-zero if the operation is successful, zero otherwise.
+ */
+int algui_destroy_widget_timer(ALGUI_WIDGET *wgt, ALLEGRO_TIMER *timer) {
+    ALGUI_LIST_NODE *node;
+    assert(wgt);
+    node = _find_timer(&wgt->timers, timer);
+    if (!node) return 0;
+    _destroy_timer(&wgt->timers, node);
+    return 1;
+}
+
+
+/** removes and destroys all timers in a widget.
+    This function is called automatically from the default cleanup message handler.
+    @param wgt widget to remove the timers from.
+ */
+void algui_destroy_widget_timers(ALGUI_WIDGET *wgt) {
+    ALGUI_LIST_NODE *node, *next;
+    assert(wgt);    
+    for(node = algui_get_first_list_node(&wgt->timers); node;) {
+        next = algui_get_next_list_node(node);
+        _destroy_timer(&wgt->timers, node);
+        node = next;
+    }
 }

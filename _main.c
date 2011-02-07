@@ -40,6 +40,8 @@ static int _msg_line(int id) {
     if (id >= ALGUI_MSG_LEFT_DROP && id <= ALGUI_MSG_DRAG_KEY_CHAR)
         return id - ALGUI_MSG_LEFT_DROP;
         
+    if (id == ALGUI_MSG_TIMER) return 0;        
+        
     return -1;        
 }
 
@@ -310,6 +312,13 @@ static int _test_begin_drag_and_drop(ALGUI_WIDGET *wgt, ALGUI_BEGIN_DRAG_AND_DRO
 }
 
 
+//test timer
+static int _test_timer(ALGUI_WIDGET *wgt, ALGUI_TIMER_MESSAGE *msg) {
+	draw_msg(wgt, &msg->message, "TIMER(timestamp=%g)", msg->timestamp);	
+    return 1;
+}
+
+
 //test widget proc
 static int test_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
     switch (msg->id) {
@@ -424,6 +433,10 @@ static int test_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
         //begin drag and drop
         case ALGUI_MSG_BEGIN_DRAG_AND_DROP:
             return _test_begin_drag_and_drop(wgt, (ALGUI_BEGIN_DRAG_AND_DROP_MESSAGE *)msg);			
+            
+        //timer
+        case ALGUI_MSG_TIMER:
+            return _test_timer(wgt, (ALGUI_TIMER_MESSAGE *)msg);            
     }
     return algui_widget_proc(wgt, msg);
 }
@@ -440,7 +453,7 @@ static void init_test_widget(TEST_WIDGET *wgt, unsigned keycode, unsigned unicha
 int main() {
     ALLEGRO_DISPLAY *display;
     ALLEGRO_EVENT_QUEUE *queue;
-    ALLEGRO_EVENT event;
+    ALLEGRO_EVENT event;    
     TEST_WIDGET root, form1, form2, form3, btn1, btn2, btn3;
     
     al_init();
@@ -486,6 +499,8 @@ int main() {
     algui_move_and_resize_widget(&btn2.widget, 70, 60, 50, 40);
     algui_move_and_resize_widget(&btn3.widget, 90, 80, 50, 40);
     
+    algui_create_widget_timer(&root.widget, 1, queue);
+    
     for(;;) {
         al_wait_for_event(queue, &event);
         
@@ -509,7 +524,8 @@ int main() {
     }
     
     END:
-   
+    
+    algui_cleanup_widget(&root.widget);   
     al_destroy_event_queue(queue);  
     al_destroy_display(display);
    
@@ -517,5 +533,4 @@ int main() {
 }
 
 
-//TODO timers
 //TODO skinning
