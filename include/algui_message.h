@@ -737,7 +737,7 @@ typedef union ALGUI_MESSAGE_UNION {
     ALGUI_DRAG_KEY_UP_MESSAGE drag_key_up;
 
     //drag key char.
-    ALGUI_DRAG_KEY_CHAR_MESSAGE; 
+    ALGUI_DRAG_KEY_CHAR_MESSAGE drag_key_char;
     
     ///query dragged data.
     ALGUI_QUERY_DRAGGED_DATA_MESSAGE query_dragged_data;
