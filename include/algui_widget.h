@@ -22,6 +22,7 @@ typedef struct ALGUI_WIDGET {
     ALGUI_TREE tree;
     ALGUI_RECT rect;
     ALGUI_RECT screen_rect;
+    int capture:8;
     int drawn:1;
     int layout:1;
     int visible:1;
@@ -30,6 +31,7 @@ typedef struct ALGUI_WIDGET {
     int enabled_tree:1;
     int focus:1;
     int mouse:1;
+    int data_source:1;
 } ALGUI_WIDGET;
 
 
@@ -49,6 +51,15 @@ int algui_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg);
     @return non-zero if the message was processed, zero otherwise.
  */
 int algui_send_message(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg); 
+
+
+/** sends a message to all widgets in the widget tree.
+    It returns after the message has been processed by the widgets.
+    @param wgt target widget.
+    @param msg message to send to the widget.
+    @return non-zero if the message was processed by any widget, zero otherwise.
+ */
+int algui_broadcast_message(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg); 
 
 
 /** returns a widget's procedure.
@@ -402,10 +413,84 @@ int algui_set_focus_widget(ALGUI_WIDGET *wgt);
 
 
 /** dispatch an Allegro event to a widget tree.
+    The event is dispatched to the given widget or its children
+    or to the widget that has captured events or its children.
     @param wgt root of widget tree to dispatch the event to.
     @param ev allegro event.
  */
 void algui_dispatch_event(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev); 
+
+
+/** captures events.
+    Until events are released, events are dispatched to the given
+    widget or its children.
+    Events must be released with the function algui_release_events.
+    @param wgt widget to capture events.
+    @return non-zero if the operation succeeded, 
+        zero if it failed due to too many captures or 
+        failure to remove the focus if the focus lies outside of the capture tree.
+ */
+int algui_capture_events(ALGUI_WIDGET *wgt);
+
+
+/** releases events.
+    Event control is given back to the previous widget
+    that had captured events, or to the root widget of
+    the widget tree that events are dispatched to.
+    @param wgt widget to release events from.
+    @return non-zero if the operation succeeded, zero if it failed due to the widget not having captured the events.
+ */
+int algui_release_events(ALGUI_WIDGET *wgt);
+
+
+/** begins drag and drop with the given widget as the data source.
+    After this call, widgets receive drag and drop events,
+    until drag and drop ends.
+    If there is a capture, then drag and drop events are delivered within the capture widget.
+    The widget receives a begin-drag-and-drop message.
+    @param source widget to initiate drag-and-drop.
+    @return non-zero if the widget accepted the operation and there is no other source widget, zero otherwise.
+ */
+int algui_begin_drag_and_drop(ALGUI_WIDGET *source); 
+
+
+/** Ends a drag-and-drop session.
+    This function is called automatically when a mouse button is released
+    during a drag-and-drop session.    
+    The source widget receives a drag-and-drop-ended message.
+    @param source the source widget.
+    @return non-zero if the operation suceeded, zero if the widget was not the data source.
+ */
+int algui_end_drag_and_drop(ALGUI_WIDGET *source);
+
+
+/** retrieves the data source widget.
+    The data source widget must be in the same widget tree as the given widget.
+    @param wgt widget tree to get the data source widget from.
+    @return the data soruce widget.
+ */
+ALGUI_WIDGET *algui_get_drag_and_drop_source(ALGUI_WIDGET *wgt); 
+
+
+/** queries the data source widget about the data type and operation.
+    The data source widget receives a query-drag-and-drop message.
+    @param source data source widget.
+    @param format data format description (simple ASCII string).
+    @param type drag-and-drop type.
+    @return non-zero if the data source widget supports the given format and type, zero otherwise.
+ */
+int algui_query_dragged_data(ALGUI_WIDGET *source, const char *format, ALGUI_DRAG_AND_DROP_TYPE type); 
+
+
+/** Retrieves the dragged data from the data source widget.
+    The data source widget receives a get-drag-and-drop message.
+    @param source data source widget.
+    @param format data format description (simple ASCII string).
+    @param type drag-and-drop type.
+    @return pointer to the data or NULL if the source widget does not support the format.        
+        The source widget must supply a copy of the data, which is freed by the destination widget.
+ */
+void *algui_get_dragged_data(ALGUI_WIDGET *source, const char *format, ALGUI_DRAG_AND_DROP_TYPE type); 
 
 
 #endif //ALGUI_WIDGET_H

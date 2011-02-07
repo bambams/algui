@@ -47,6 +47,9 @@ typedef enum ALGUI_MSG_ID {
     ///inform widget to position its children.
     ALGUI_MSG_DO_LAYOUT,
     
+    ///hit test
+    ALGUI_MSG_HIT_TEST,
+    
     ///left button down.
     ALGUI_MSG_LEFT_BUTTON_DOWN,
     
@@ -95,12 +98,61 @@ typedef enum ALGUI_MSG_ID {
     ///unused key char
     ALGUI_MSG_UNUSED_KEY_CHAR,
     
-    ///hit test
-    ALGUI_MSG_HIT_TEST,
+    ///drop with left buton
+    ALGUI_MSG_LEFT_DROP,
     
+    ///middle drop
+    ALGUI_MSG_MIDDLE_DROP,
+    
+    ///right drop
+    ALGUI_MSG_RIGHT_DROP,
+    
+    ///drag enter
+    ALGUI_MSG_DRAG_ENTER,
+    
+    ///drag move
+    ALGUI_MSG_DRAG_MOVE,
+    
+    ///drag leave
+    ALGUI_MSG_DRAG_LEAVE,
+    
+    ///drag wheel
+    ALGUI_MSG_DRAG_WHEEL,
+    
+    ///drag key down
+    ALGUI_MSG_DRAG_KEY_DOWN,
+    
+    ///drag key up
+    ALGUI_MSG_DRAG_KEY_UP,
+    
+    ///drag key char
+    ALGUI_MSG_DRAG_KEY_CHAR,
+    
+    ///query dragged data.
+    ALGUI_MSG_QUERY_DRAGGED_DATA,
+    
+    ///get dragged data.
+    ALGUI_MSG_GET_DRAGGED_DATA,
+    
+    ///begin drag and drop.
+    ALGUI_MSG_BEGIN_DRAG_AND_DROP,
+        
+    ///ended drag and drop.
+    ALGUI_MSG_DRAG_AND_DROP_ENDED,
+        
     ///1st user message
     ALGUI_MSG_USER = 0x10000
 } ALGUI_MSG_ID; 
+
+
+///drag and drop type.
+typedef enum ALGUI_DRAG_AND_DROP_TYPE {
+    ///copy
+    ALGUI_DRAG_AND_DROP_COPY,
+
+    ///move
+    ALGUI_DRAG_AND_DROP_MOVE,
+} ALGUI_DRAG_AND_DROP_TYPE;
 
 
 /** message base struct.
@@ -257,9 +309,25 @@ typedef struct ALGUI_DO_LAYOUT_MESSAGE {
 } ALGUI_DO_LAYOUT_MESSAGE;
 
 
-/** left button down message.
+///hit test message
+typedef struct ALGUI_HIT_TEST_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///horizontal coordinate, relative to widget
+    int x;
+    
+    ///vertical coordinate, relative to widget
+    int y;
+    
+    ///hit test success
+    int ok;
+} ALGUI_HIT_TEST_MESSAGE;
+
+
+/** mouse message.
  */
-typedef struct ALGUI_LEFT_BUTTON_DOWN_MESSAGE {
+typedef struct ALGUI_MOUSE_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;
     
@@ -283,74 +351,82 @@ typedef struct ALGUI_LEFT_BUTTON_DOWN_MESSAGE {
     
     ///local mouse y (relative to widget)
     int y;
-} ALGUI_LEFT_BUTTON_DOWN_MESSAGE;
+} ALGUI_MOUSE_MESSAGE;
 
+
+/** left button down message.
+ */
+typedef ALGUI_MOUSE_MESSAGE ALGUI_LEFT_BUTTON_DOWN_MESSAGE;
 
 /** left button up message.
  */
-typedef ALGUI_LEFT_BUTTON_DOWN_MESSAGE ALGUI_LEFT_BUTTON_UP_MESSAGE;
+typedef ALGUI_MOUSE_MESSAGE ALGUI_LEFT_BUTTON_UP_MESSAGE;
 
 
 /** middle button down message.
  */
-typedef ALGUI_LEFT_BUTTON_DOWN_MESSAGE ALGUI_MIDDLE_BUTTON_DOWN_MESSAGE;
+typedef ALGUI_MOUSE_MESSAGE ALGUI_MIDDLE_BUTTON_DOWN_MESSAGE;
 
 
 /** middle button up message.
  */
-typedef ALGUI_LEFT_BUTTON_DOWN_MESSAGE ALGUI_MIDDLE_BUTTON_UP_MESSAGE;
+typedef ALGUI_MOUSE_MESSAGE ALGUI_MIDDLE_BUTTON_UP_MESSAGE;
 
 
 /** right button down message.
  */
-typedef ALGUI_LEFT_BUTTON_DOWN_MESSAGE ALGUI_RIGHT_BUTTON_DOWN_MESSAGE;
+typedef ALGUI_MOUSE_MESSAGE ALGUI_RIGHT_BUTTON_DOWN_MESSAGE;
 
 
 /** right button up message.
  */
-typedef ALGUI_LEFT_BUTTON_DOWN_MESSAGE ALGUI_RIGHT_BUTTON_UP_MESSAGE;
+typedef ALGUI_MOUSE_MESSAGE ALGUI_RIGHT_BUTTON_UP_MESSAGE;
 
 
 /** mouse enter message.
  */
-typedef ALGUI_LEFT_BUTTON_DOWN_MESSAGE ALGUI_MOUSE_ENTER_MESSAGE;
+typedef ALGUI_MOUSE_MESSAGE ALGUI_MOUSE_ENTER_MESSAGE;
 
 
 /** mouse move message.
  */
-typedef ALGUI_LEFT_BUTTON_DOWN_MESSAGE ALGUI_MOUSE_MOVE_MESSAGE;
+typedef ALGUI_MOUSE_MESSAGE ALGUI_MOUSE_MOVE_MESSAGE;
 
 
 /** mouse leave message.
  */
-typedef ALGUI_LEFT_BUTTON_DOWN_MESSAGE ALGUI_MOUSE_LEAVE_MESSAGE;
+typedef ALGUI_MOUSE_MESSAGE ALGUI_MOUSE_LEAVE_MESSAGE;
 
 
 /** mouse wheel message.
  */
-typedef ALGUI_LEFT_BUTTON_DOWN_MESSAGE ALGUI_MOUSE_WHEEL_MESSAGE;
+typedef ALGUI_MOUSE_MESSAGE ALGUI_MOUSE_WHEEL_MESSAGE;
 
 
-///key down message.
-typedef struct ALGUI_KEY_DOWN_MESSAGE {
+///key message.
+typedef struct ALGUI_KEY_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
-    ///key code
+    ///key code.
     int keycode;
-} ALGUI_KEY_DOWN_MESSAGE;  
+} ALGUI_KEY_MESSAGE;  
+
+
+///key down message.
+typedef ALGUI_KEY_MESSAGE ALGUI_KEY_DOWN_MESSAGE;
 
 
 ///key up message.
-typedef ALGUI_KEY_DOWN_MESSAGE ALGUI_KEY_UP_MESSAGE;
+typedef ALGUI_KEY_MESSAGE ALGUI_KEY_UP_MESSAGE;
 
 
 ///unused key down message.
-typedef ALGUI_KEY_DOWN_MESSAGE ALGUI_UNUSED_KEY_DOWN_MESSAGE;
+typedef ALGUI_KEY_MESSAGE ALGUI_UNUSED_KEY_DOWN_MESSAGE;
 
 
 ///unused key up message.
-typedef ALGUI_KEY_DOWN_MESSAGE ALGUI_UNUSED_KEY_UP_MESSAGE;
+typedef ALGUI_KEY_MESSAGE ALGUI_UNUSED_KEY_UP_MESSAGE;
 
 
 /** key char message.
@@ -377,27 +453,171 @@ typedef struct ALGUI_KEY_CHAR_MESSAGE {
 typedef ALGUI_KEY_CHAR_MESSAGE ALGUI_UNUSED_KEY_CHAR_MESSAGE;
 
 
-///hit test message
-typedef struct ALGUI_HIT_TEST_MESSAGE {
+/** drag'n'drop mouse message.
+ */
+typedef struct ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;
+    
+    ///screen mouse x
+    int screen_x;
+    
+    ///screen mouse y
+    int screen_y;
+    
+    ///mouse z
+    int z;
+    
+    ///mouse w
+    int w;
+    
+    ///mouse button
+    unsigned button;
+    
+    ///local mouse x (relative to widget)
+    int x;
+    
+    ///local mouse y (relative to widget)
+    int y;
+    
+    ///pointer to widget that has the dragged data
+    struct ALGUI_WIDGET *source;
+} ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE;
+
+
+/** left drop message.
+ */
+typedef ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE ALGUI_LEFT_DROP_MESSAGE;
+
+
+/** middle drop message.
+ */
+typedef ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE ALGUI_MIDDLE_DROP_MESSAGE;
+
+
+/** right drop message.
+ */
+typedef ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE ALGUI_RIGHT_DROP_MESSAGE;
+
+
+/** drag enter message.
+ */
+typedef ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE ALGUI_DRAG_ENTER_MESSAGE;
+
+
+/** drag move message.
+ */
+typedef ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE ALGUI_DRAG_MOVE_MESSAGE;
+
+
+/** drag leave message.
+ */
+typedef ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE ALGUI_DRAG_LEAVE_MESSAGE;
+
+
+/** drag wheel message.
+ */
+typedef ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE ALGUI_DRAG_WHEEL_MESSAGE;
+
+
+///key message for drag and drop.
+typedef struct ALGUI_DRAG_AND_DROP_KEY_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
-    ///horizontal coordinate, relative to widget
-    int x;
+    ///key code.
+    int keycode;
+        
+    ///pointer to widget that has the dragged data
+    struct ALGUI_WIDGET *source;
+} ALGUI_DRAG_AND_DROP_KEY_MESSAGE;  
+
+
+///drag key down message.
+typedef ALGUI_DRAG_AND_DROP_KEY_MESSAGE ALGUI_DRAG_KEY_DOWN_MESSAGE;
+
+
+///drag key up message.
+typedef ALGUI_DRAG_AND_DROP_KEY_MESSAGE ALGUI_DRAG_KEY_UP_MESSAGE;
+
+
+/** key char message for drag and drop.
+ */
+typedef struct ALGUI_DRAG_KEY_CHAR_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
     
-    ///vertical coordinate, relative to widget
-    int y;
+    ///key code
+    int keycode;
     
-    ///hit test success
+    ///unicode character
+    int unichar;
+    
+    ///modifiers
+    unsigned modifiers;
+    
+    ///repeat flag
+    int repeat;
+
+    ///pointer to widget that has the dragged data
+    struct ALGUI_WIDGET *source;
+} ALGUI_DRAG_KEY_CHAR_MESSAGE; 
+
+
+///query dragged data message.
+typedef struct ALGUI_QUERY_DRAGGED_DATA_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///data format.
+    const char *format;
+    
+    ///drag and drop type
+    ALGUI_DRAG_AND_DROP_TYPE type;
+    
+    ///operation result.
     int ok;
-} ALGUI_HIT_TEST_MESSAGE;
+} ALGUI_QUERY_DRAGGED_DATA_MESSAGE;
+
+
+///get dragged data message.
+typedef struct ALGUI_GET_DRAGGED_DATA_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///data format.
+    const char *format;
+    
+    ///drag and drop type
+    ALGUI_DRAG_AND_DROP_TYPE type;
+    
+    ///operation result.
+    void *data;
+} ALGUI_GET_DRAGGED_DATA_MESSAGE;
+
+
+///begin drag and drop message.
+typedef struct ALGUI_BEGIN_DRAG_AND_DROP_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///accepted status
+    int ok;
+} ALGUI_BEGIN_DRAG_AND_DROP_MESSAGE;
+
+
+///drag and drop ended message.
+typedef struct ALGUI_DRAG_AND_DROP_ENDED_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+} ALGUI_DRAG_AND_DROP_ENDED_MESSAGE;
 
 
 /** union of all messages.
  */
 typedef union ALGUI_MESSAGE_UNION {
-    ///base message.
-    ALGUI_MESSAGE message;    
+    ///message id.
+    int id;
     
     ///cleanup message.
     ALGUI_CLEANUP_MESSAGE cleanup;
@@ -437,6 +657,9 @@ typedef union ALGUI_MESSAGE_UNION {
     
     //do layout message
     ALGUI_DO_LAYOUT_MESSAGE do_layout;    
+    
+    ///hit_test message
+    ALGUI_HIT_TEST_MESSAGE hit_test;
     
     ///left button down message
     ALGUI_LEFT_BUTTON_DOWN_MESSAGE left_button_down;
@@ -486,8 +709,47 @@ typedef union ALGUI_MESSAGE_UNION {
     ///unused key char message
     ALGUI_UNUSED_KEY_CHAR_MESSAGE unused_key_char;
     
-    ///hit_test message
-    ALGUI_HIT_TEST_MESSAGE hit_test;
+    ///left drop.        
+    ALGUI_LEFT_DROP_MESSAGE left_drop;
+
+    ///middle drop.
+    ALGUI_MIDDLE_DROP_MESSAGE middle_drop;
+
+    ///right drop.
+    ALGUI_RIGHT_DROP_MESSAGE right_drop;
+
+    ///drag enter.
+    ALGUI_DRAG_ENTER_MESSAGE drag_enter;
+
+    ///drag move.
+    ALGUI_DRAG_MOVE_MESSAGE drag_move;
+
+    ///drag leave.
+    ALGUI_DRAG_LEAVE_MESSAGE drag_leave;
+
+    ///drag wheel.
+    ALGUI_DRAG_WHEEL_MESSAGE drag_wheel;
+
+    ///drag key down.
+    ALGUI_DRAG_KEY_DOWN_MESSAGE drag_key_down;
+
+    ///drag key up.
+    ALGUI_DRAG_KEY_UP_MESSAGE drag_key_up;
+
+    //drag key char.
+    ALGUI_DRAG_KEY_CHAR_MESSAGE; 
+    
+    ///query dragged data.
+    ALGUI_QUERY_DRAGGED_DATA_MESSAGE query_dragged_data;
+    
+    ///get dragged data.
+    ALGUI_GET_DRAGGED_DATA_MESSAGE get_dragged_data;    
+    
+    ///begin drag-and-drop
+    ALGUI_BEGIN_DRAG_AND_DROP_MESSAGE begin_drag_and_drop;
+    
+    ///drag-and-drop ended
+    ALGUI_DRAG_AND_DROP_ENDED_MESSAGE drag_and_drop_ended;
 } ALGUI_MESSAGE_UNION;
 
 
