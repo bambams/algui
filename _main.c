@@ -515,3 +515,7 @@ int main() {
    
     return 0;
 }
+
+
+//TODO timers
+//TODO skinning
