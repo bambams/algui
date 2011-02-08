@@ -23,6 +23,7 @@ typedef struct ALGUI_WIDGET {
     ALGUI_RECT rect;
     ALGUI_RECT screen_rect;
     ALGUI_LIST timers;
+    const char *id;
     int capture:8;
     int drawn:1;
     int layout:1;
@@ -219,11 +220,22 @@ ALGUI_WIDGET *algui_get_mouse_widget(ALGUI_WIDGET *wgt);
 ALGUI_WIDGET *algui_get_widget_from_point(ALGUI_WIDGET *wgt, int x, int y); 
 
 
+/** returns the id of a widget.
+    @param wgt widget to get the id of.
+    @return the id of a widget.
+ */
+const char *algui_get_widget_id(ALGUI_WIDGET *wgt); 
+
+
 /** initializes a widget structure.
     @param wgt widget to initialize.
     @param proc widget proc.
+    @param id widget id; statically allocated text that identifies the widget; 
+        normally, it is the widget class, which is used for skinning widget classes,
+        but specific instances can modify the widget id to a unique identifier
+        in order to specify a unique skin appearance.
  */
-void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc);
+void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc, const char *id);
 
 
 /** cleans up a widget and its children.
@@ -527,6 +539,21 @@ int algui_destroy_widget_timer(ALGUI_WIDGET *wgt, ALLEGRO_TIMER *timer);
     @param wgt widget to remove the timers from.
  */
 void algui_destroy_widget_timers(ALGUI_WIDGET *wgt);
+
+
+/** allows the widgets in the tree to set themselves up from the given skin.
+    Widgets receive a set-skin message.
+    @param wgt root of tree to skin.
+    @param skin skin.
+ */
+void algui_skin_widget(ALGUI_WIDGET *wgt, ALGUI_SKIN *skin); 
+
+
+/** sets the id of a widget.
+    @param wgt widget to get the id of.
+    @param id the new id of a widget.
+ */
+void algui_set_widget_id(ALGUI_WIDGET *wgt, const char *id); 
 
 
 #endif //ALGUI_WIDGET_H

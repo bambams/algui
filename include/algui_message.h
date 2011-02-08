@@ -3,6 +3,7 @@
 
 
 #include "algui_rect.h"
+#include "algui_skin.h"
 
 
 /** widget messages enumeration.
@@ -142,6 +143,9 @@ typedef enum ALGUI_MSG_ID {
     
     ///timer event
     ALGUI_MSG_TIMER,
+    
+    ///set the UI skin
+    ALGUI_MSG_SET_SKIN,
         
     ///1st user message
     ALGUI_MSG_USER = 0x10000
@@ -647,6 +651,16 @@ typedef struct ALGUI_TIMER_MESSAGE {
 } ALGUI_TIMER_MESSAGE;
 
 
+///set skin message.
+typedef struct ALGUI_SET_SKIN_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///skin
+    ALGUI_SKIN *skin;
+} ALGUI_SET_SKIN_MESSAGE;
+
+
 /** union of all messages.
  */
 typedef union ALGUI_MESSAGE_UNION {
@@ -785,8 +799,11 @@ typedef union ALGUI_MESSAGE_UNION {
     ///drag-and-drop ended
     ALGUI_DRAG_AND_DROP_ENDED_MESSAGE drag_and_drop_ended;
     
-    ///timer evnet
+    ///timer event
     ALGUI_TIMER_MESSAGE timer;
+    
+    ///set skin
+    ALGUI_SET_SKIN_MESSAGE set_skin;
 } ALGUI_MESSAGE_UNION;
 
 

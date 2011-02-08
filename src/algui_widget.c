@@ -1465,11 +1465,25 @@ ALGUI_WIDGET *algui_get_widget_from_point(ALGUI_WIDGET *wgt, int x, int y) {
 }
 
 
+/** returns the id of a widget.
+    @param wgt widget to get the id of.
+    @return the id of a widget.
+ */
+const char *algui_get_widget_id(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return wgt->id;
+}
+
+
 /** initializes a widget structure.
     @param wgt widget to initialize.
     @param proc widget proc.
+    @param id widget id; statically allocated text that identifies the widget; 
+        normally, it is the widget class, which is used for skinning widget classes,
+        but specific instances can modify the widget id to a unique identifier
+        in order to specify a unique skin appearance.
  */
-void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc) {
+void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc, const char *id) {
     assert(wgt);
     assert(proc);
     wgt->proc = proc;
@@ -1477,6 +1491,7 @@ void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc) {
     algui_set_rect(&wgt->rect, 0, 0, 0, 0);
     algui_set_rect(&wgt->screen_rect, 0, 0, 0, 0);
     algui_init_list(&wgt->timers);
+    wgt->id = id;
     wgt->capture = 0;
     wgt->visible = 1;
     wgt->visible_tree = 1;
@@ -1717,7 +1732,7 @@ void algui_resize_widget(ALGUI_WIDGET *wgt, int w, int h) {
  */
 void algui_pack_widget(ALGUI_WIDGET *wgt) {
     assert(wgt);
-    _update_layout(wgt);
+    if (wgt->drawn) _update_layout(wgt);
 }
 
 
@@ -2071,4 +2086,28 @@ void algui_destroy_widget_timers(ALGUI_WIDGET *wgt) {
         _destroy_timer(&wgt->timers, node);
         node = next;
     }
+}
+
+
+/** allows the widgets in the tree to set themselves up from the given skin.
+    Widgets receive a set-skin message.
+    @param wgt root of tree to skin.
+    @param skin skin.
+ */
+void algui_skin_widget(ALGUI_WIDGET *wgt, ALGUI_SKIN *skin) {
+    ALGUI_SET_SKIN_MESSAGE msg;
+    assert(skin);
+    msg.message.id = ALGUI_MSG_SET_SKIN;
+    msg.skin = skin;
+    algui_broadcast_message(wgt, &msg.message);
+}
+
+
+/** sets the id of a widget.
+    @param wgt widget to get the id of.
+    @param id the new id of a widget.
+ */
+void algui_set_widget_id(ALGUI_WIDGET *wgt, const char *id) {
+    assert(wgt);
+    wgt->id = id;
 }

@@ -3,6 +3,7 @@
 
 
 #include <stddef.h>
+#include "algui_version.h"
 
 
 /** double-linked list node.

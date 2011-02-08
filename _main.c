@@ -18,11 +18,10 @@ typedef struct TEST_WIDGET {
 	ALGUI_WIDGET widget;
 	unsigned keycode;
 	unsigned unichar;
+	ALLEGRO_COLOR color;
+	ALLEGRO_FONT *font;
+	ALLEGRO_BITMAP *bitmap;
 } TEST_WIDGET;
-
-
-//font to draw the widget
-ALLEGRO_FONT *font = 0;
 
 
 //draws text with a background color
@@ -47,10 +46,12 @@ static int _msg_line(int id) {
 
 
 //draws a message in a widget
-static void draw_msg(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg, const char *format, ...) {
+static void draw_msg(ALGUI_WIDGET *wgt, ALLEGRO_FONT *font, ALGUI_MESSAGE *msg, const char *format, ...) {
 	char buf[512];
 	va_list params;	
 	ALGUI_RECT rct;
+	
+	if (!font) return;
 
 	//get params	
 	va_start(params, format);
@@ -77,22 +78,31 @@ static void draw_msg(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg, const char *format, 
 }
 
 
+//test cleanup
+static void _test_cleanup(ALGUI_WIDGET *wgt, ALGUI_CLEANUP_MESSAGE *msg) {
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;	
+	if (test->font) al_destroy_font(test->font);
+	if (test->bitmap) al_destroy_bitmap(test->bitmap);
+}
+
+
 //test paint
 static int _test_paint(ALGUI_WIDGET *wgt, ALGUI_PAINT_MESSAGE *msg) {
 	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
     ALGUI_RECT *pos = &msg->widget_rect;
-    ALLEGRO_COLOR bg = algui_widget_has_focus(wgt) ? al_map_rgb(255, 255, 0) : al_map_rgb(255, 255, 255);
     int border = algui_widget_has_focus(wgt) ? 3 : 1;
-    al_draw_filled_rectangle(pos->left + 0.5f, pos->top + 0.5f, pos->right + 0.5f, pos->bottom + 0.5f, bg);
+    al_draw_filled_rectangle(pos->left + 0.5f, pos->top + 0.5f, pos->right + 0.5f, pos->bottom + 0.5f, test->color);
     al_draw_rectangle(pos->left + 0.5f, pos->top + 0.5f, pos->right + 0.5f, pos->bottom + 0.5f, al_map_rgb(0, 0, 0), border);    
-    al_draw_textf(font, al_map_rgb(0, 0, 0), pos->left, pos->top, 0, "%i %c", test->keycode - ALLEGRO_KEY_1 + 1, test->unichar);
+    if (test->font) al_draw_textf(test->font, al_map_rgb(0, 0, 0), pos->left, pos->top, 0, "%i %c", test->keycode - ALLEGRO_KEY_1 + 1, test->unichar);
+    if (test->bitmap) al_draw_bitmap(test->bitmap, pos->right - 16, pos->top, 0);
     return 1;
 } 
 
 
 //test left button down.
 static int _test_left_button_down(ALGUI_WIDGET *wgt, ALGUI_LEFT_BUTTON_DOWN_MESSAGE *msg) {	
-	draw_msg(wgt, &msg->message, "LEFT BUTTON DOWN(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "LEFT BUTTON DOWN(x=%i,y=%i)", msg->x, msg->y);	
 	algui_set_focus_widget(wgt);
 	algui_capture_events(wgt);
 	return 1;
@@ -101,7 +111,8 @@ static int _test_left_button_down(ALGUI_WIDGET *wgt, ALGUI_LEFT_BUTTON_DOWN_MESS
 
 //test left button up.
 static int _test_left_button_up(ALGUI_WIDGET *wgt, ALGUI_LEFT_BUTTON_UP_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "LEFT BUTTON UP(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "LEFT BUTTON UP(x=%i,y=%i)", msg->x, msg->y);	
 	algui_release_events(wgt);
 	return 1;
 }
@@ -109,7 +120,8 @@ static int _test_left_button_up(ALGUI_WIDGET *wgt, ALGUI_LEFT_BUTTON_UP_MESSAGE 
 
 //test middle button down.
 static int _test_middle_button_down(ALGUI_WIDGET *wgt, ALGUI_MIDDLE_BUTTON_DOWN_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "MIDDLE BUTTON DOWN(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "MIDDLE BUTTON DOWN(x=%i,y=%i)", msg->x, msg->y);	
 	algui_set_focus_widget(wgt);
 	algui_capture_events(wgt);
 	return 1;
@@ -118,7 +130,8 @@ static int _test_middle_button_down(ALGUI_WIDGET *wgt, ALGUI_MIDDLE_BUTTON_DOWN_
 
 //test middle button up.
 static int _test_middle_button_up(ALGUI_WIDGET *wgt, ALGUI_MIDDLE_BUTTON_UP_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "MIDDLE BUTTON UP(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "MIDDLE BUTTON UP(x=%i,y=%i)", msg->x, msg->y);	
 	algui_release_events(wgt);
 	return 1;
 }
@@ -126,7 +139,8 @@ static int _test_middle_button_up(ALGUI_WIDGET *wgt, ALGUI_MIDDLE_BUTTON_UP_MESS
 
 //test right button down.
 static int _test_right_button_down(ALGUI_WIDGET *wgt, ALGUI_RIGHT_BUTTON_DOWN_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "RIGHT BUTTON DOWN(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "RIGHT BUTTON DOWN(x=%i,y=%i)", msg->x, msg->y);	
 	algui_begin_drag_and_drop(wgt);
 	return 1;
 }
@@ -134,35 +148,40 @@ static int _test_right_button_down(ALGUI_WIDGET *wgt, ALGUI_RIGHT_BUTTON_DOWN_ME
 
 //test right button up.
 static int _test_right_button_up(ALGUI_WIDGET *wgt, ALGUI_RIGHT_BUTTON_UP_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "RIGHT BUTTON UP(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "RIGHT BUTTON UP(x=%i,y=%i)", msg->x, msg->y);	
 	return 1;
 }
 
 
 //test mouse enter
 static int _test_mouse_enter(ALGUI_WIDGET *wgt, ALGUI_MOUSE_ENTER_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "MOUSE ENTER(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "MOUSE ENTER(x=%i,y=%i)", msg->x, msg->y);	
 	return 1;
 }
 
 
 //test mouse move
 static int _test_mouse_move(ALGUI_WIDGET *wgt, ALGUI_MOUSE_MOVE_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "MOUSE MOVE(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "MOUSE MOVE(x=%i,y=%i)", msg->x, msg->y);	
 	return 1;
 }
 
 
 //test mouse leave
 static int _test_mouse_leave(ALGUI_WIDGET *wgt, ALGUI_MOUSE_LEAVE_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "MOUSE LEAVE(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "MOUSE LEAVE(x=%i,y=%i)", msg->x, msg->y);	
 	return 1;
 }
 
 
 //test mouse wheel
 static int _test_mouse_wheel(ALGUI_WIDGET *wgt, ALGUI_MOUSE_WHEEL_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "MOUSE WHEEL(z=%i,w=%i)", msg->z, msg->w);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "MOUSE WHEEL(z=%i,w=%i)", msg->z, msg->w);	
 	return 1;
 }
 
@@ -171,7 +190,7 @@ static int _test_mouse_wheel(ALGUI_WIDGET *wgt, ALGUI_MOUSE_WHEEL_MESSAGE *msg) 
 static int _test_key_down(ALGUI_WIDGET *wgt, ALGUI_KEY_DOWN_MESSAGE *msg) {
 	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
 	if (msg->keycode == test->keycode) {
-		draw_msg(wgt, &msg->message, "KEY DOWN(keycode=%i)", msg->keycode);	
+		draw_msg(wgt, test->font, &msg->message, "KEY DOWN(keycode=%i)", msg->keycode);	
 		return 1;
 	}
 	return 0;
@@ -182,7 +201,7 @@ static int _test_key_down(ALGUI_WIDGET *wgt, ALGUI_KEY_DOWN_MESSAGE *msg) {
 static int _test_key_up(ALGUI_WIDGET *wgt, ALGUI_KEY_UP_MESSAGE *msg) {
 	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
 	if (msg->keycode == test->keycode) {
-		draw_msg(wgt, &msg->message, "KEY UP(keycode=%i)", msg->keycode);	
+		draw_msg(wgt, test->font, &msg->message, "KEY UP(keycode=%i)", msg->keycode);	
 		return 1;
 	}
 	return 0;
@@ -193,7 +212,7 @@ static int _test_key_up(ALGUI_WIDGET *wgt, ALGUI_KEY_UP_MESSAGE *msg) {
 static int _test_unused_key_down(ALGUI_WIDGET *wgt, ALGUI_UNUSED_KEY_DOWN_MESSAGE *msg) {
 	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
 	if (msg->keycode == test->keycode) {
-		draw_msg(wgt, &msg->message, "UNUSED KEY DOWN(keycode=%i)", msg->keycode);	
+		draw_msg(wgt, test->font, &msg->message, "UNUSED KEY DOWN(keycode=%i)", msg->keycode);	
 		algui_set_focus_widget(wgt);		
 		return 1;
 	}
@@ -205,7 +224,7 @@ static int _test_unused_key_down(ALGUI_WIDGET *wgt, ALGUI_UNUSED_KEY_DOWN_MESSAG
 static int _test_unused_key_up(ALGUI_WIDGET *wgt, ALGUI_UNUSED_KEY_UP_MESSAGE *msg) {
 	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
 	if (msg->keycode == test->keycode) {
-		draw_msg(wgt, &msg->message, "UNUSED KEY UP(keycode=%i)", msg->keycode);	
+		draw_msg(wgt, test->font, &msg->message, "UNUSED KEY UP(keycode=%i)", msg->keycode);	
 		return 1;
 	}
 	return 0;
@@ -216,7 +235,7 @@ static int _test_unused_key_up(ALGUI_WIDGET *wgt, ALGUI_UNUSED_KEY_UP_MESSAGE *m
 static int _test_key_char(ALGUI_WIDGET *wgt, ALGUI_KEY_CHAR_MESSAGE *msg) {
 	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
 	if (msg->unichar == test->unichar) {
-		draw_msg(wgt, &msg->message, "KEY CHAR(unichar=%c)", msg->unichar);	
+		draw_msg(wgt, test->font, &msg->message, "KEY CHAR(unichar=%c)", msg->unichar);	
 		return 1;
 	}
 	return 0;
@@ -227,7 +246,7 @@ static int _test_key_char(ALGUI_WIDGET *wgt, ALGUI_KEY_CHAR_MESSAGE *msg) {
 static int _test_unused_key_char(ALGUI_WIDGET *wgt, ALGUI_UNUSED_KEY_CHAR_MESSAGE *msg) {
 	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
 	if (msg->unichar == test->unichar) {
-		draw_msg(wgt, &msg->message, "UNUSED KEY CHAR(unichar=%c)", msg->unichar);	
+		draw_msg(wgt, test->font, &msg->message, "UNUSED KEY CHAR(unichar=%c)", msg->unichar);	
 		algui_set_focus_widget(wgt);		
 		return 1;
 	}
@@ -237,70 +256,80 @@ static int _test_unused_key_char(ALGUI_WIDGET *wgt, ALGUI_UNUSED_KEY_CHAR_MESSAG
 
 //test left drop
 static int _test_left_drop(ALGUI_WIDGET *wgt, ALGUI_LEFT_DROP_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "LEFT DROP(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "LEFT DROP(x=%i,y=%i)", msg->x, msg->y);	
     return 1;
 }
 
 
 //test middle drop.
 static int _test_middle_drop(ALGUI_WIDGET *wgt, ALGUI_MIDDLE_DROP_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "MIDDLE DROP(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "MIDDLE DROP(x=%i,y=%i)", msg->x, msg->y);	
     return 1;
 }
 
 
 //test drop
 static int _test_right_drop(ALGUI_WIDGET *wgt, ALGUI_RIGHT_DROP_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "RIGHT DROP(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "RIGHT DROP(x=%i,y=%i)", msg->x, msg->y);	
     return 1;
 }
 
 
 //test drag enter
 static int _test_drag_enter(ALGUI_WIDGET *wgt, ALGUI_DRAG_ENTER_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "DRAG ENTER(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "DRAG ENTER(x=%i,y=%i)", msg->x, msg->y);	
     return 1;
 }
 
 
 //test drag move
 static int _test_drag_move(ALGUI_WIDGET *wgt, ALGUI_DRAG_MOVE_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "DRAG MOVE(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "DRAG MOVE(x=%i,y=%i)", msg->x, msg->y);	
     return 1;
 }
 
 
 //test drag leave
 static int _test_drag_leave(ALGUI_WIDGET *wgt, ALGUI_DRAG_LEAVE_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "DRAG LEAVE(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "DRAG LEAVE(x=%i,y=%i)", msg->x, msg->y);	
     return 1;
 }
 
 
 //test drag wheel
 static int _test_drag_wheel(ALGUI_WIDGET *wgt, ALGUI_DRAG_WHEEL_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "DRAG WHEEL(x=%i,y=%i)", msg->x, msg->y);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "DRAG WHEEL(x=%i,y=%i)", msg->x, msg->y);	
     return 1;
 }
 
 
 //test drag key down
 static int _test_drag_key_down(ALGUI_WIDGET *wgt, ALGUI_DRAG_KEY_DOWN_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "DRAG KEY DOWN(keycode=%i)", msg->keycode);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "DRAG KEY DOWN(keycode=%i)", msg->keycode);	
     return 1;
 }
 
 
 //test drag-and-drop key up
 static int _test_drag_key_up(ALGUI_WIDGET *wgt, ALGUI_DRAG_KEY_UP_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "DRAG KEY UP(keycode=%i)", msg->keycode);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "DRAG KEY UP(keycode=%i)", msg->keycode);	
     return 1;
 }
 
 
 //test drag-and-drop character
 static int _test_drag_key_char(ALGUI_WIDGET *wgt, ALGUI_DRAG_KEY_CHAR_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "DRAG KEY CHAR(unichar=%c)", msg->unichar);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "DRAG KEY CHAR(unichar=%c)", msg->unichar);	
     return 1;
 }
 
@@ -314,7 +343,19 @@ static int _test_begin_drag_and_drop(ALGUI_WIDGET *wgt, ALGUI_BEGIN_DRAG_AND_DRO
 
 //test timer
 static int _test_timer(ALGUI_WIDGET *wgt, ALGUI_TIMER_MESSAGE *msg) {
-	draw_msg(wgt, &msg->message, "TIMER(timestamp=%g)", msg->timestamp);	
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	draw_msg(wgt, test->font, &msg->message, "TIMER(timestamp=%g)", msg->timestamp);	
+    return 1;
+}
+
+
+//test skin
+static int _test_set_skin(ALGUI_WIDGET *wgt, ALGUI_SET_SKIN_MESSAGE *msg) {
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	const char *id = algui_get_widget_id(wgt);
+	test->color = algui_get_skin_color(msg->skin, id, "color", al_map_rgb(255, 255, 255));
+	test->font = algui_get_skin_font(msg->skin, id, "font", NULL, 0, 0);
+	test->bitmap = algui_get_skin_bitmap(msg->skin, id, "bitmap", NULL);
     return 1;
 }
 
@@ -322,6 +363,11 @@ static int _test_timer(ALGUI_WIDGET *wgt, ALGUI_TIMER_MESSAGE *msg) {
 //test widget proc
 static int test_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
     switch (msg->id) {
+        //cleanup
+        case ALGUI_MSG_CLEANUP:
+            _test_cleanup(wgt, (ALGUI_CLEANUP_MESSAGE *)msg);
+            break;
+    
 		//paint
         case ALGUI_MSG_PAINT:        
             return _test_paint(wgt, (ALGUI_PAINT_MESSAGE *)msg);
@@ -437,16 +483,23 @@ static int test_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
         //timer
         case ALGUI_MSG_TIMER:
             return _test_timer(wgt, (ALGUI_TIMER_MESSAGE *)msg);            
+            
+        //skin
+        case ALGUI_MSG_SET_SKIN:
+            return _test_set_skin(wgt, (ALGUI_SET_SKIN_MESSAGE *)msg);            
     }
     return algui_widget_proc(wgt, msg);
 }
 
 
 //init the test widget
-static void init_test_widget(TEST_WIDGET *wgt, unsigned keycode, unsigned unichar) {
-	algui_init_widget(&wgt->widget, test_widget_proc);
+static void init_test_widget(TEST_WIDGET *wgt, unsigned keycode, unsigned unichar, const char *id) {
+	algui_init_widget(&wgt->widget, test_widget_proc, id);
 	wgt->keycode = keycode;
 	wgt->unichar = unichar;
+	wgt->color = al_map_rgb(255, 255, 255);
+	wgt->font = NULL;
+	wgt->bitmap = NULL;
 }
 
 
@@ -455,6 +508,7 @@ int main() {
     ALLEGRO_EVENT_QUEUE *queue;
     ALLEGRO_EVENT event;    
     TEST_WIDGET root, form1, form2, form3, btn1, btn2, btn3;
+    ALGUI_SKIN *skin;
     
     al_init();
     al_install_keyboard();
@@ -473,16 +527,13 @@ int main() {
     al_register_event_source(queue, al_get_mouse_event_source());
     al_register_event_source(queue, al_get_display_event_source(display));
     
-    font = al_load_ttf_font("test/data/LiberationMono-Regular.ttf", 12, ALLEGRO_TTF_MONOCHROME);
-    assert(font);
-    
-    init_test_widget(&root, ALLEGRO_KEY_1, 'A');
-    init_test_widget(&form1, ALLEGRO_KEY_2, 'B');
-    init_test_widget(&form2, ALLEGRO_KEY_3, 'C');
-    init_test_widget(&form3, ALLEGRO_KEY_4, 'D');
-    init_test_widget(&btn1, ALLEGRO_KEY_5, 'E');
-    init_test_widget(&btn2, ALLEGRO_KEY_6, 'F');
-    init_test_widget(&btn3, ALLEGRO_KEY_7, 'G');
+    init_test_widget(&root, ALLEGRO_KEY_1, 'A', "root");
+    init_test_widget(&form1, ALLEGRO_KEY_2, 'B', "form");
+    init_test_widget(&form2, ALLEGRO_KEY_3, 'C', "form");
+    init_test_widget(&form3, ALLEGRO_KEY_4, 'D', "form");
+    init_test_widget(&btn1, ALLEGRO_KEY_5, 'E', "button");
+    init_test_widget(&btn2, ALLEGRO_KEY_6, 'F', "button");
+    init_test_widget(&btn3, ALLEGRO_KEY_7, 'G', "button");
     
     algui_add_widget(&root.widget, &form1.widget);
     algui_add_widget(&root.widget, &form2.widget);
@@ -500,6 +551,9 @@ int main() {
     algui_move_and_resize_widget(&btn3.widget, 90, 80, 50, 40);
     
     algui_create_widget_timer(&root.widget, 1, queue);
+    
+    skin = algui_load_skin("test/test-skin/test-skin.txt");
+    algui_skin_widget(&root.widget, skin);
     
     for(;;) {
         al_wait_for_event(queue, &event);
@@ -524,8 +578,9 @@ int main() {
     }
     
     END:
-    
+
     algui_cleanup_widget(&root.widget);   
+    algui_destroy_skin(skin);
     al_destroy_event_queue(queue);  
     al_destroy_display(display);
    
