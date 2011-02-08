@@ -10,3 +10,4 @@ Features implemented so far:
 -drag and drop API
 -timer API
 -skinning API
+-layout management API

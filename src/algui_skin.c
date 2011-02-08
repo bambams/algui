@@ -530,7 +530,7 @@ int algui_save_skin(ALGUI_SKIN *skin, const char *filename) {
     if (!al_save_config_file(filename, skin->config)) return 0;
     
     //check if the filename needs to be set
-    if (stricmp(filename, skin->filename) == 0) return 1;
+    if (strcmp(filename, skin->filename) == 0) return 1;
     
     //set new filename
     free(skin->filename);
