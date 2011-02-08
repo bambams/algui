@@ -1622,8 +1622,10 @@ void algui_draw_widget_rect(ALGUI_WIDGET *wgt, ALGUI_RECT *rct) {
     @param wgt widget to draw; its children are also drawn.
  */
 void algui_draw_widget(ALGUI_WIDGET *wgt) {
+    ALGUI_RECT rct;
     assert(wgt);
-    _draw(wgt, &wgt->screen_rect);
+    algui_move_and_resize_rect(&rct, 0, 0, algui_get_widget_width(wgt), algui_get_widget_height(wgt));
+    algui_draw_widget_rect(wgt, &rct);
 }
 
 

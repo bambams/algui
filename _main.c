@@ -555,6 +555,10 @@ int main() {
     skin = algui_load_skin("test/test-skin/test-skin.txt");
     algui_skin_widget(&root.widget, skin);
     
+    //initial draw
+    algui_draw_widget(&root.widget);
+    al_flip_display();
+    
     for(;;) {
         al_wait_for_event(queue, &event);
         
