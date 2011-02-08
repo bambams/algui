@@ -441,8 +441,9 @@ int algui_set_focus_widget(ALGUI_WIDGET *wgt);
     or to the widget that has captured events or its children.
     @param wgt root of widget tree to dispatch the event to.
     @param ev allegro event.
+    @return non-zero if the event was processed, zero otherwise.
  */
-void algui_dispatch_event(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev); 
+int algui_dispatch_event(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev); 
 
 
 /** captures events.
