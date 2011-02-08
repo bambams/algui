@@ -1,1 +1,12 @@
 C GUI library for Allegro 5.
+
+version 0.0.0.1
+---------------
+
+Features implemented so far:
+
+-widget management API
+-mouse and keyboard events API
+-drag and drop API
+-timer API
+-skinning API
