@@ -557,4 +557,12 @@ void algui_skin_widget(ALGUI_WIDGET *wgt, ALGUI_SKIN *skin);
 void algui_set_widget_id(ALGUI_WIDGET *wgt, const char *id); 
 
 
+/** sets the text of all widgets in the tree from a config file that contains translations.
+    Widgets receive the set-translation message.
+    @param wgt root of widget tree to set the translations of.
+    @param config allegro config file with translations.
+ */
+void algui_set_translation(ALGUI_WIDGET *wgt, ALLEGRO_CONFIG *config); 
+
+
 #endif //ALGUI_WIDGET_H

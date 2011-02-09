@@ -21,6 +21,7 @@ typedef struct TEST_WIDGET {
 	ALLEGRO_COLOR color;
 	ALLEGRO_FONT *font;
 	ALLEGRO_BITMAP *bitmap;
+	const char *text;
 } TEST_WIDGET;
 
 
@@ -95,6 +96,15 @@ static int _test_paint(ALGUI_WIDGET *wgt, ALGUI_PAINT_MESSAGE *msg) {
     al_draw_rectangle(pos->left + 0.5f, pos->top + 0.5f, pos->right + 0.5f, pos->bottom + 0.5f, al_map_rgb(0, 0, 0), border);    
     if (test->font) al_draw_textf(test->font, al_map_rgb(0, 0, 0), pos->left, pos->top, 0, "%i %c", test->keycode - ALLEGRO_KEY_1 + 1, test->unichar);
     if (test->bitmap) al_draw_bitmap(test->bitmap, pos->right - 16, pos->top, 0);
+    if (test->text && test->font) {
+        al_draw_text(
+            test->font, 
+            al_map_rgb(0, 0, 0), 
+            pos->left, 
+            pos->top + al_get_font_line_height(test->font),
+            0,
+            test->text);
+    }            
     return 1;
 } 
 
@@ -360,6 +370,17 @@ static int _test_set_skin(ALGUI_WIDGET *wgt, ALGUI_SET_SKIN_MESSAGE *msg) {
 }
 
 
+//test translation
+static int _test_set_translation(ALGUI_WIDGET *wgt, ALGUI_SET_TRANSLATION_MESSAGE *msg) {
+	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
+	if (test->text) {
+        const char *tr = al_get_config_value(msg->config, algui_get_widget_id(wgt), test->text);
+        if (tr) test->text = tr;
+    }
+    return 1;
+}
+
+
 //test widget proc
 static int test_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
     switch (msg->id) {
@@ -487,19 +508,24 @@ static int test_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
         //skin
         case ALGUI_MSG_SET_SKIN:
             return _test_set_skin(wgt, (ALGUI_SET_SKIN_MESSAGE *)msg);            
+            
+        //set translation
+        case ALGUI_MSG_SET_TRANSLATION:
+            return _test_set_translation(wgt, (ALGUI_SET_TRANSLATION_MESSAGE *)msg);            
     }
     return algui_widget_proc(wgt, msg);
 }
 
 
 //init the test widget
-static void init_test_widget(TEST_WIDGET *wgt, unsigned keycode, unsigned unichar, const char *id) {
+static void init_test_widget(TEST_WIDGET *wgt, unsigned keycode, unsigned unichar, const char *id, const char *text) {
 	algui_init_widget(&wgt->widget, test_widget_proc, id);
 	wgt->keycode = keycode;
 	wgt->unichar = unichar;
 	wgt->color = al_map_rgb(255, 255, 255);
 	wgt->font = NULL;
 	wgt->bitmap = NULL;
+	wgt->text = text;
 }
 
 
@@ -509,6 +535,7 @@ int main() {
     ALLEGRO_EVENT event;    
     TEST_WIDGET root, form1, form2, form3, btn1, btn2, btn3;
     ALGUI_SKIN *skin;
+    ALLEGRO_CONFIG *translation;
     
     al_init();
     al_install_keyboard();
@@ -527,13 +554,13 @@ int main() {
     al_register_event_source(queue, al_get_mouse_event_source());
     al_register_event_source(queue, al_get_display_event_source(display));
     
-    init_test_widget(&root, ALLEGRO_KEY_1, 'A', "root");
-    init_test_widget(&form1, ALLEGRO_KEY_2, 'B', "form");
-    init_test_widget(&form2, ALLEGRO_KEY_3, 'C', "form");
-    init_test_widget(&form3, ALLEGRO_KEY_4, 'D', "form");
-    init_test_widget(&btn1, ALLEGRO_KEY_5, 'E', "button");
-    init_test_widget(&btn2, ALLEGRO_KEY_6, 'F', "button");
-    init_test_widget(&btn3, ALLEGRO_KEY_7, 'G', "button");
+    init_test_widget(&root, ALLEGRO_KEY_1, 'A', "root", "hello world");
+    init_test_widget(&form1, ALLEGRO_KEY_2, 'B', "form", NULL);
+    init_test_widget(&form2, ALLEGRO_KEY_3, 'C', "form", NULL);
+    init_test_widget(&form3, ALLEGRO_KEY_4, 'D', "form", NULL);
+    init_test_widget(&btn1, ALLEGRO_KEY_5, 'E', "button", NULL);
+    init_test_widget(&btn2, ALLEGRO_KEY_6, 'F', "button", NULL);
+    init_test_widget(&btn3, ALLEGRO_KEY_7, 'G', "button", NULL);
     
     algui_add_widget(&root.widget, &form1.widget);
     algui_add_widget(&root.widget, &form2.widget);
@@ -552,8 +579,13 @@ int main() {
     
     algui_create_widget_timer(&root.widget, 1, queue);
     
+    //load skin
     skin = algui_load_skin("test/test-skin/test-skin.txt");
     algui_skin_widget(&root.widget, skin);
+    
+    //load translation
+    translation = al_load_config_file("test/greek.txt");
+    algui_set_translation(&root.widget, translation);
     
     //initial draw
     algui_draw_widget(&root.widget);

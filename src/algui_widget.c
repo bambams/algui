@@ -2124,3 +2124,16 @@ void algui_set_widget_id(ALGUI_WIDGET *wgt, const char *id) {
     assert(wgt);
     wgt->id = id;
 }
+
+
+/** sets the text of all widgets in the tree from a config file that contains translations.
+    Widgets receive the set-translation message.
+    @param wgt root of widget tree to set the translations of.
+    @param config allegro config file with translations.
+ */
+void algui_set_translation(ALGUI_WIDGET *wgt, ALLEGRO_CONFIG *config) {
+    ALGUI_SET_TRANSLATION_MESSAGE msg;
+    msg.message.id = ALGUI_MSG_SET_TRANSLATION;
+    msg.config = config;
+    algui_broadcast_message(wgt, &msg.message);
+}

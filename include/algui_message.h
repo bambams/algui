@@ -146,6 +146,9 @@ typedef enum ALGUI_MSG_ID {
     
     ///set the UI skin
     ALGUI_MSG_SET_SKIN,
+    
+    ///set translation
+    ALGUI_MSG_SET_TRANSLATION,
         
     ///1st user message
     ALGUI_MSG_USER = 0x10000
@@ -661,6 +664,16 @@ typedef struct ALGUI_SET_SKIN_MESSAGE {
 } ALGUI_SET_SKIN_MESSAGE;
 
 
+///set translation message.
+typedef struct ALGUI_SET_TRANSLATION_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///allegro configuration with translations.
+    ALLEGRO_CONFIG *config;
+} ALGUI_SET_TRANSLATION_MESSAGE;
+
+
 /** union of all messages.
  */
 typedef union ALGUI_MESSAGE_UNION {
@@ -804,6 +817,9 @@ typedef union ALGUI_MESSAGE_UNION {
     
     ///set skin
     ALGUI_SET_SKIN_MESSAGE set_skin;
+    
+    ///set translation
+    ALGUI_SET_TRANSLATION_MESSAGE set_translation;
 } ALGUI_MESSAGE_UNION;
 
 
