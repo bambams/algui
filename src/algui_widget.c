@@ -291,7 +291,7 @@ static ALGUI_WIDGET *_get_mouse_widget(ALGUI_WIDGET *wgt) {
 //sets a key char message from an event
 static void _set_key_char_message(ALGUI_KEY_CHAR_MESSAGE *msg, int id, ALLEGRO_EVENT *ev) {
     msg->message.id = id;
-    msg->timestamp = ev->any.timestamp;
+    msg->event = ev;
     msg->keycode = ev->keyboard.keycode;
     msg->unichar = ev->keyboard.unichar;
     msg->modifiers = ev->keyboard.modifiers;
@@ -302,9 +302,7 @@ static void _set_key_char_message(ALGUI_KEY_CHAR_MESSAGE *msg, int id, ALLEGRO_E
 //sets a mouse message structure from an event
 static void _set_mouse_message(ALGUI_WIDGET *wgt, ALGUI_MOUSE_MESSAGE *msg, int id, ALLEGRO_EVENT *ev) {
     msg->message.id = id;
-    msg->timestamp = ev->any.timestamp;
-    msg->screen_x = ev->mouse.x;
-    msg->screen_y = ev->mouse.y;
+    msg->event = ev;
     msg->z = ev->mouse.z;
     msg->w = ev->mouse.w;
     msg->button = ev->mouse.button;
@@ -333,9 +331,7 @@ static ALGUI_WIDGET *_get_data_source(ALGUI_WIDGET *wgt) {
 //sets a drag message structure from an event
 static void _set_drag_message(ALGUI_WIDGET *wgt, ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE *msg, int id, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     msg->message.id = id;
-    msg->timestamp = ev->any.timestamp;
-    msg->screen_x = ev->mouse.x;
-    msg->screen_y = ev->mouse.y;
+    msg->event = ev;
     msg->z = ev->mouse.z;
     msg->w = ev->mouse.w;
     msg->button = ev->mouse.button;
@@ -365,6 +361,84 @@ static void _destroy_timer(ALGUI_LIST *timers, ALGUI_LIST_NODE *node) {
 }
 
 
+//manages the input focus according to key pressed
+static int _manage_focus_via_keyboard(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    switch (ev->keyboard.keycode) {
+        case ALLEGRO_KEY_LEFT:
+        case ALLEGRO_KEY_UP:
+            return algui_move_focus_backward(wgt);
+            
+        case ALLEGRO_KEY_RIGHT:
+        case ALLEGRO_KEY_DOWN:
+            return algui_move_focus_forward(wgt);
+            
+        case ALLEGRO_KEY_TAB:
+            if (ev->keyboard.modifiers & (ALLEGRO_KEYMOD_SHIFT)) {
+                return algui_move_focus_backward(wgt);
+            }
+            else {
+                return algui_move_focus_forward(wgt);
+            }
+            break;
+            
+    }
+    
+    return 0;
+}
+
+
+//returns the child widget with a lower tab order than the given one
+static ALGUI_WIDGET *_get_lower_tab_child(ALGUI_WIDGET *wgt, ALGUI_WIDGET *tab_child) {
+    ALGUI_WIDGET *result = NULL, *child;    
+    int min_tab_order = INT_MIN;
+    int max_tab_order = tab_child ? tab_child->tab_order : INT_MAX;
+    for(child = algui_get_highest_child_widget(wgt); child; child = algui_get_lower_sibling_widget(child)) {
+        if (child->tab_order < max_tab_order && child->tab_order > min_tab_order) {            
+            result = child;
+            min_tab_order = child->tab_order;
+        }
+    }
+    return result;
+}
+
+
+//moves focus back in children
+static int _move_focus_backward_in_children(ALGUI_WIDGET *wgt, ALGUI_WIDGET *focus_child) {
+    ALGUI_WIDGET *child;
+    for(child = _get_lower_tab_child(wgt, focus_child); child; child = _get_lower_tab_child(wgt, child)) {
+        if (_move_focus_backward_in_children(child, NULL)) return 1;
+        if (algui_set_focus_widget(child)) return 1;
+    }
+    return 0;
+}
+
+
+//returns the child widget with a higher tab order than the given one
+static ALGUI_WIDGET *_get_higher_tab_child(ALGUI_WIDGET *wgt, ALGUI_WIDGET *tab_child) {
+    ALGUI_WIDGET *result = NULL, *child;    
+    int max_tab_order = INT_MAX;
+    int min_tab_order = tab_child ? tab_child->tab_order : -1;
+    for(child = algui_get_lowest_child_widget(wgt); child; child = algui_get_higher_sibling_widget(child)) {
+        if (child->tab_order > min_tab_order && child->tab_order < max_tab_order) {            
+            result = child;
+            max_tab_order = child->tab_order;
+        }
+    }
+    return result;
+}
+
+
+//moves focus forward in children
+static int _move_focus_forward_in_children(ALGUI_WIDGET *wgt, ALGUI_WIDGET *focus_child) {
+    ALGUI_WIDGET *child;
+    for(child = _get_higher_tab_child(wgt, focus_child); child; child = _get_higher_tab_child(wgt, child)) {
+        if (_move_focus_forward_in_children(child, NULL)) return 1;
+        if (algui_set_focus_widget(child)) return 1;
+    }
+    return 0;
+}
+
+
 /******************************************************************************
     INTERNAL MESSAGE HANDLERS
  ******************************************************************************/
@@ -384,6 +458,7 @@ static int _msg_insert_widget(ALGUI_WIDGET *wgt, ALGUI_INSERT_WIDGET_MESSAGE *ms
     assert(msg->child);
     msg->ok = algui_insert_tree(&wgt->tree, &msg->child->tree, msg->next ? &msg->next->tree : NULL);
     if (msg->ok) {
+        msg->child->tab_order = algui_get_tree_child_count(&wgt->tree);
         _update_flags(msg->child, wgt->drawn);
         if (wgt->drawn) {
             _init_layout(msg->child);
@@ -539,7 +614,7 @@ static int _event_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     if (focus) {
         //prepare the keydown message
         key_down_msg.message.id = ALGUI_MSG_KEY_DOWN;
-        key_down_msg.timestamp = ev->any.timestamp;
+        key_down_msg.event = ev;
         key_down_msg.keycode = ev->keyboard.keycode;
 
         //if the focus widget processes the message, then do nothing else        
@@ -548,13 +623,11 @@ static int _event_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     
     //prepare the unused key down message
     unused_key_down_msg.message.id = ALGUI_MSG_UNUSED_KEY_DOWN;
-    unused_key_down_msg.timestamp = ev->any.timestamp;
+    unused_key_down_msg.event = ev;
     unused_key_down_msg.keycode = ev->keyboard.keycode;
     
     //dispatch the unused key down message
     if (_broadcast_message_to_enabled(capture, &unused_key_down_msg.message)) return 1;
-    
-    //TODO manage focus via the keyboard
     
     //event not processed
     return 0;
@@ -577,7 +650,7 @@ static int _event_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     if (focus) {
         //prepare the keyup message
         key_up_msg.message.id = ALGUI_MSG_KEY_UP;
-        key_up_msg.timestamp = ev->any.timestamp;
+        key_up_msg.event = ev;
         key_up_msg.keycode = ev->keyboard.keycode;
 
         //if the focus widget processes the message, then do nothing else        
@@ -586,13 +659,11 @@ static int _event_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     
     //prepare the unused key up message
     unused_key_up_msg.message.id = ALGUI_MSG_UNUSED_KEY_UP;
-    unused_key_up_msg.timestamp = ev->any.timestamp;
+    unused_key_up_msg.event = ev;
     unused_key_up_msg.keycode = ev->keyboard.keycode;
     
     //dispatch the unused key up message
     if (_broadcast_message_to_enabled(capture, &unused_key_up_msg.message)) return 1;
-    
-    //TODO manage focus via the keyboard
     
     //event not processed
     return 0;
@@ -625,9 +696,9 @@ static int _event_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     
     //dispatch the unused key char message
     if (_broadcast_message_to_enabled(capture, &unused_key_char_msg.message)) return 1; 
-    
-    //event not processed
-    return 0;    
+        
+    //manage focus via the keyboard
+    return _manage_focus_via_keyboard(capture, ev);
 }
 
 
@@ -830,7 +901,7 @@ static int _event_drag_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDG
     
     //prepare the message
     msg.message.id = ALGUI_MSG_DRAG_KEY_DOWN;
-    msg.timestamp = ev->any.timestamp;
+    msg.event = ev;
     msg.keycode = ev->keyboard.keycode;
     msg.source = source;
     
@@ -855,7 +926,7 @@ static int _event_drag_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET
     
     //prepare the message
     msg.message.id = ALGUI_MSG_DRAG_KEY_UP;
-    msg.timestamp = ev->any.timestamp;
+    msg.event = ev;
     msg.keycode = ev->keyboard.keycode;
     msg.source = source;
     
@@ -880,7 +951,7 @@ static int _event_drag_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDG
     
     //prepare the message
     msg.message.id = ALGUI_MSG_DRAG_KEY_CHAR;
-    msg.timestamp = ev->any.timestamp;
+    msg.event = ev;
     msg.keycode = ev->keyboard.keycode;
     msg.unichar = ev->keyboard.unichar;
     msg.modifiers = ev->keyboard.modifiers;
@@ -1021,7 +1092,7 @@ static int  _event_timer(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     if (node) {
         //prepare the message
         msg.message.id = ALGUI_MSG_TIMER;
-        msg.timestamp = ev->any.timestamp;
+        msg.event = ev;
         msg.timer = ev->timer.source;
         
         //send the message
@@ -1279,6 +1350,16 @@ ALGUI_WIDGET *algui_get_highest_child_widget(ALGUI_WIDGET *wgt) {
 }
 
 
+/** returns the number of children widgets.
+    @param wgt widget to get the number of children of.
+    @return the number of children widgets.
+ */
+unsigned long algui_get_widget_child_count(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return algui_get_tree_child_count(&wgt->tree);
+}
+
+
 /** returns the root widget.
     @param wgt widget to get the root of.
     @return the root widget.
@@ -1485,6 +1566,28 @@ const char *algui_get_widget_id(ALGUI_WIDGET *wgt) {
 }
 
 
+/** retrieves the tab order of a widget.
+    @param wgt widget to get the tab order of.
+    @return the widget's tab order.
+ */
+int algui_get_widget_tab_order(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return wgt->tab_order;
+}
+
+
+/** retrieves the z-order of a widget.
+    @param wgt widget to get the z-order of.
+    @return the widget's z-order; 0 means that the widget is below all its siblings;
+        -1 means the input parameter was null.
+ */
+int algui_get_widget_z_order(ALGUI_WIDGET *wgt) {
+    int result = -1;
+    for(; wgt; ++result, wgt = algui_get_lower_sibling_widget(wgt));
+    return result;
+}
+
+
 /** initializes a widget structure.
     @param wgt widget to initialize.
     @param proc widget proc.
@@ -1503,6 +1606,7 @@ void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc, const char *id
     algui_init_list(&wgt->timers);
     wgt->id = id;
     wgt->capture = 0;
+    wgt->tab_order = 0;
     wgt->visible = 1;
     wgt->visible_tree = 1;
     wgt->enabled = 1;
@@ -2136,4 +2240,54 @@ void algui_set_translation(ALGUI_WIDGET *wgt, ALLEGRO_CONFIG *config) {
     msg.message.id = ALGUI_MSG_SET_TRANSLATION;
     msg.config = config;
     algui_broadcast_message(wgt, &msg.message);
+}
+
+
+/** sets the tab order of a widget.
+    @param wgt widget to set the tab order of.
+    @param tbo the widget's tab order.
+ */
+void algui_set_widget_tab_order(ALGUI_WIDGET *wgt, int tbo) {
+    assert(wgt);
+    wgt->tab_order = tbo;
+}
+
+
+/** moves the input focus backward within the given widget tree,
+    depending on the tab order of widgets.
+    @param wgt root of widget tree to move the focus backward into.
+    @return non-zero if focus was changed, zero otherwise.
+ */
+int algui_move_focus_backward(ALGUI_WIDGET *wgt) {
+    ALGUI_WIDGET *focus, *child_focus, *end;    
+    focus = algui_get_focus_widget(wgt);    
+    if (!focus) focus = wgt;    
+    child_focus = NULL;    
+    end = algui_get_parent_widget(wgt);
+    while (focus != end) {
+        if (_move_focus_backward_in_children(focus, child_focus)) return 1;        
+        child_focus = focus;
+        focus = algui_get_parent_widget(focus);
+    }    
+    return algui_set_focus_widget(wgt);
+}
+
+
+/** moves the input focus forward within the given widget tree,
+    depending on the tab order of widgets.
+    @param wgt root of widget tree to move the focus forward into.
+    @return non-zero if focus was changed, zero otherwise.
+ */
+int algui_move_focus_forward(ALGUI_WIDGET *wgt) {
+    ALGUI_WIDGET *focus, *child_focus, *end;    
+    focus = algui_get_focus_widget(wgt);    
+    if (!focus) focus = wgt;    
+    child_focus = NULL;    
+    end = algui_get_parent_widget(wgt);
+    while (focus != end) {
+        if (_move_focus_forward_in_children(focus, child_focus)) return 1;        
+        child_focus = focus;
+        focus = algui_get_parent_widget(focus);
+    }    
+    return algui_set_focus_widget(wgt);
 }

@@ -1,5 +1,6 @@
 #include "algui_tree.h"
 #include <assert.h>
+#include <stddef.h>
 
 
 /******************************************************************************
@@ -69,7 +70,7 @@ ALGUI_TREE *algui_get_last_child_tree(ALGUI_TREE *tree) {
     @param tree tree node to get the number of children.
     @return the number of children.
  */
-size_t algui_get_tree_child_count(ALGUI_TREE *tree) {
+unsigned long algui_get_tree_child_count(ALGUI_TREE *tree) {
     assert(tree);
     return algui_get_list_length(&tree->children);
 }

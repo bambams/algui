@@ -25,6 +25,7 @@ typedef struct ALGUI_WIDGET {
     ALGUI_LIST timers;
     const char *id;
     int capture:8;
+    int tab_order:15;
     int drawn:1;
     int layout:1;
     int visible:1;
@@ -108,6 +109,13 @@ ALGUI_WIDGET *algui_get_lowest_child_widget(ALGUI_WIDGET *wgt);
     @return the child; it may be null.
  */
 ALGUI_WIDGET *algui_get_highest_child_widget(ALGUI_WIDGET *wgt); 
+
+
+/** returns the number of children widgets.
+    @param wgt widget to get the number of children of.
+    @return the number of children widgets.
+ */
+unsigned long algui_get_widget_child_count(ALGUI_WIDGET *wgt);
 
 
 /** returns the root widget.
@@ -225,6 +233,21 @@ ALGUI_WIDGET *algui_get_widget_from_point(ALGUI_WIDGET *wgt, int x, int y);
     @return the id of a widget.
  */
 const char *algui_get_widget_id(ALGUI_WIDGET *wgt); 
+
+
+/** retrieves the tab order of a widget.
+    @param wgt widget to get the tab order of.
+    @return the widget's tab order.
+ */
+int algui_get_widget_tab_order(ALGUI_WIDGET *wgt); 
+
+
+/** retrieves the z-order of a widget.
+    @param wgt widget to get the z-order of.
+    @return the widget's z-order; 0 means that the widget is below all its siblings;
+        -1 means the input parameter was null.
+ */
+int algui_get_widget_z_order(ALGUI_WIDGET *wgt); 
 
 
 /** initializes a widget structure.
@@ -563,6 +586,29 @@ void algui_set_widget_id(ALGUI_WIDGET *wgt, const char *id);
     @param config allegro config file with translations.
  */
 void algui_set_translation(ALGUI_WIDGET *wgt, ALLEGRO_CONFIG *config); 
+
+
+/** sets the tab order of a widget.
+    @param wgt widget to set the tab order of.
+    @param tbo the widget's tab order.
+ */
+void algui_set_widget_tab_order(ALGUI_WIDGET *wgt, int tbo); 
+
+
+/** moves the input focus backward within the given widget tree,
+    depending on the tab order of widgets.
+    @param wgt root of widget tree to move the focus backward into.
+    @return non-zero if focus was changed, zero otherwise.
+ */
+int algui_move_focus_backward(ALGUI_WIDGET *wgt);
+
+
+/** moves the input focus forward within the given widget tree,
+    depending on the tab order of widgets.
+    @param wgt root of widget tree to move the focus forward into.
+    @return non-zero if focus was changed, zero otherwise.
+ */
+int algui_move_focus_forward(ALGUI_WIDGET *wgt);
 
 
 #endif //ALGUI_WIDGET_H

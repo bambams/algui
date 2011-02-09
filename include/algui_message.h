@@ -341,14 +341,14 @@ typedef struct ALGUI_MOUSE_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;
     
-    ///timestamp, same as in allegro event
-    double timestamp;
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
     
-    ///screen mouse x
-    int screen_x;
+    ///local mouse x (relative to widget)
+    int x;
     
-    ///screen mouse y
-    int screen_y;
+    ///local mouse y (relative to widget)
+    int y;
     
     ///mouse z
     int z;
@@ -358,12 +358,6 @@ typedef struct ALGUI_MOUSE_MESSAGE {
     
     ///mouse button
     unsigned button;
-    
-    ///local mouse x (relative to widget)
-    int x;
-    
-    ///local mouse y (relative to widget)
-    int y;
 } ALGUI_MOUSE_MESSAGE;
 
 
@@ -421,9 +415,9 @@ typedef struct ALGUI_KEY_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
-    ///timestamp, same as in allegro event
-    double timestamp;
-    
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
+        
     ///key code.
     int keycode;
 } ALGUI_KEY_MESSAGE;  
@@ -451,9 +445,9 @@ typedef struct ALGUI_KEY_CHAR_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
-    ///timestamp, same as in allegro event
-    double timestamp;
-    
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
+        
     ///key code
     int keycode;
     
@@ -478,14 +472,14 @@ typedef struct ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;
     
-    ///timestamp, same as in allegro event
-    double timestamp;
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
     
-    ///screen mouse x
-    int screen_x;
+    ///local mouse x (relative to widget)
+    int x;
     
-    ///screen mouse y
-    int screen_y;
+    ///local mouse y (relative to widget)
+    int y;
     
     ///mouse z
     int z;
@@ -495,12 +489,6 @@ typedef struct ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE {
     
     ///mouse button
     unsigned button;
-    
-    ///local mouse x (relative to widget)
-    int x;
-    
-    ///local mouse y (relative to widget)
-    int y;
     
     ///pointer to widget that has the dragged data
     struct ALGUI_WIDGET *source;
@@ -547,8 +535,8 @@ typedef struct ALGUI_DRAG_AND_DROP_KEY_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
-    ///timestamp, same as in allegro event
-    double timestamp;
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
     
     ///key code.
     int keycode;
@@ -572,8 +560,8 @@ typedef struct ALGUI_DRAG_KEY_CHAR_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
-    ///timestamp, same as in allegro event
-    double timestamp;
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
     
     ///key code
     int keycode;
@@ -646,8 +634,8 @@ typedef struct ALGUI_TIMER_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
-    ///timestamp, same as in allegro event
-    double timestamp;
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
         
     ///allegro timer
     ALLEGRO_TIMER *timer;

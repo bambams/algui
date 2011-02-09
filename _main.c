@@ -52,6 +52,9 @@ static void draw_msg(ALGUI_WIDGET *wgt, ALLEGRO_FONT *font, ALGUI_MESSAGE *msg, 
 	va_list params;	
 	ALGUI_RECT rct;
 	
+	//for testing purposes
+	return;
+	
 	if (!font) return;
 
 	//get params	
@@ -354,7 +357,7 @@ static int _test_begin_drag_and_drop(ALGUI_WIDGET *wgt, ALGUI_BEGIN_DRAG_AND_DRO
 //test timer
 static int _test_timer(ALGUI_WIDGET *wgt, ALGUI_TIMER_MESSAGE *msg) {
 	TEST_WIDGET *test = (TEST_WIDGET *)wgt;
-	draw_msg(wgt, test->font, &msg->message, "TIMER(timestamp=%g)", msg->timestamp);	
+	draw_msg(wgt, test->font, &msg->message, "TIMER(timestamp=%g)", msg->event->any.timestamp);	
     return 1;
 }
 
@@ -536,6 +539,8 @@ int main() {
     TEST_WIDGET root, form1, form2, form3, btn1, btn2, btn3;
     ALGUI_SKIN *skin;
     ALLEGRO_CONFIG *translation;
+    int need_draw;
+    ALLEGRO_TIMER *loop_timer;
     
     al_init();
     al_install_keyboard();
@@ -549,11 +554,13 @@ int main() {
     display = al_create_display(640, 480);
     assert(display);        
     
-    queue = al_create_event_queue();
+    queue = al_create_event_queue();    
+    loop_timer = al_create_timer(1.0 / 60.0);    
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_mouse_event_source());
     al_register_event_source(queue, al_get_display_event_source(display));
-    
+    al_register_event_source(queue, al_get_timer_event_source(loop_timer));    
+        
     init_test_widget(&root, ALLEGRO_KEY_1, 'A', "root", "hello world");
     init_test_widget(&form1, ALLEGRO_KEY_2, 'B', "form", NULL);
     init_test_widget(&form2, ALLEGRO_KEY_3, 'C', "form", NULL);
@@ -577,7 +584,8 @@ int main() {
     algui_move_and_resize_widget(&btn2.widget, 70, 60, 50, 40);
     algui_move_and_resize_widget(&btn3.widget, 90, 80, 50, 40);
     
-    algui_create_widget_timer(&root.widget, 1, queue);
+    //create timer
+    //algui_create_widget_timer(&root.widget, 1, queue);
     
     //load skin
     skin = algui_load_skin("test/test-skin/test-skin.txt");
@@ -587,10 +595,8 @@ int main() {
     translation = al_load_config_file("test/greek.txt");
     algui_set_translation(&root.widget, translation);
     
-    //initial draw
-    algui_draw_widget(&root.widget);
-    al_flip_display();
-    
+    need_draw = 1;
+    al_start_timer(loop_timer);
     for(;;) {
         al_wait_for_event(queue, &event);
         
@@ -601,21 +607,38 @@ int main() {
             case ALLEGRO_EVENT_KEY_DOWN:
                 if (event.keyboard.keycode == ALLEGRO_KEY_ESCAPE) goto END;
                 algui_dispatch_event(&root.widget, &event);
-                break;
+                break;                                
 
             case ALLEGRO_EVENT_DISPLAY_EXPOSE:
-                algui_dispatch_event(&root.widget, &event);
-                al_flip_display();
+                need_draw = 1;
                 break;            
+                
+            case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+                //algui_dispatch_event(&root.widget, &event);
+                //need_draw = 1;
+                break;            
+            
+             case ALLEGRO_EVENT_TIMER:
+                if (event.timer.source == loop_timer) need_draw = 1;
+                else algui_dispatch_event(&root.widget, &event);
+                break;
                 
 			default:                                
                 algui_dispatch_event(&root.widget, &event);
         }
+
+        if (need_draw && al_is_event_queue_empty(queue)) {
+            algui_draw_widget(&root.widget);
+            al_flip_display();
+            need_draw = false;
+        }                
     }
     
     END:
 
     algui_cleanup_widget(&root.widget);   
+    al_destroy_timer(loop_timer);
+    al_destroy_config(translation);
     algui_destroy_skin(skin);
     al_destroy_event_queue(queue);  
     al_destroy_display(display);

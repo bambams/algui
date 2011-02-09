@@ -1,5 +1,19 @@
 C GUI library for Allegro 5.
 
+version 0.0.0.6
+---------------
+
+-added tab order and cursor/tab focus.
+
+version 0.0.0.5
+---------------
+
+Added the following APIs:
+
+-translation
+
+Various small bug fixes.
+
 version 0.0.0.1
 ---------------
 

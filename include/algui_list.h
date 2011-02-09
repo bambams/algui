@@ -2,7 +2,6 @@
 #define ALGUI_LIST_H
 
 
-#include <stddef.h>
 #include "algui_version.h"
 
 
@@ -20,7 +19,7 @@ typedef struct ALGUI_LIST_NODE {
 typedef struct ALGUI_LIST {
     ALGUI_LIST_NODE *first;
     ALGUI_LIST_NODE *last;
-    size_t length;
+    unsigned long length;
 } ALGUI_LIST;
 
 
@@ -42,7 +41,7 @@ ALGUI_LIST_NODE *algui_get_last_list_node(ALGUI_LIST *list);
     @param list list to get the length of.
     @return the length of the list of zero of the list is empty.
  */
-size_t algui_get_list_length(ALGUI_LIST *list); 
+unsigned long algui_get_list_length(ALGUI_LIST *list); 
 
 
 /** returns the next node.
