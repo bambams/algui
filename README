@@ -1,5 +1,17 @@
 C GUI library for Allegro 5.
 
+version 0.0.0.7
+---------------
+
+Added/changed several things:
+
+-init and cleanup functions.
+-logging API.
+-resource manager.
+-bitmaps and fonts loaded via skins are managed via the resource manager.
+-a widget 'display', used as the toplevel widget.
+-a 'game' event loop in the example.
+
 version 0.0.0.6
 ---------------
 

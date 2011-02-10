@@ -2,7 +2,13 @@
 #define ALGUI_LIST_H
 
 
+#include <stddef.h>
 #include "algui_version.h"
+
+
+/** static linked list initializer.
+ */
+#define ALGUI_LIST_INITIALIZER         {NULL, NULL, 0} 
 
 
 /** double-linked list node.

@@ -1112,6 +1112,16 @@ static int  _event_timer(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
 }
 
 
+//display resized
+static int _event_display_resized(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    ALGUI_DISPLAY_RESIZED_MESSAGE msg;
+    wgt = algui_get_root_widget(wgt);
+    msg.message.id = ALGUI_MSG_DISPLAY_RESIZED;
+    msg.event = ev;
+    return algui_send_message(wgt, &msg.message);
+}
+
+
 //default event dispatch
 static int _event_dispatch_default(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     switch (ev->type) {        
@@ -1130,6 +1140,10 @@ static int _event_dispatch_default(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
         //timer
         case ALLEGRO_EVENT_TIMER:
             return _event_timer(wgt, ev);
+            
+        //display resized event
+        case ALLEGRO_EVENT_DISPLAY_RESIZE:            
+            return _event_display_resized(wgt, ev);
     }
     
     //event not processed

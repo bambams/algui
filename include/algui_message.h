@@ -149,6 +149,9 @@ typedef enum ALGUI_MSG_ID {
     
     ///set translation
     ALGUI_MSG_SET_TRANSLATION,
+    
+    ///display resized
+    ALGUI_MSG_DISPLAY_RESIZED,
         
     ///1st user message
     ALGUI_MSG_USER = 0x10000
@@ -662,6 +665,16 @@ typedef struct ALGUI_SET_TRANSLATION_MESSAGE {
 } ALGUI_SET_TRANSLATION_MESSAGE;
 
 
+///display resized message.
+typedef struct ALGUI_DISPLAY_RESIZED_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
+} ALGUI_DISPLAY_RESIZED_MESSAGE;
+
+
 /** union of all messages.
  */
 typedef union ALGUI_MESSAGE_UNION {
@@ -808,6 +821,9 @@ typedef union ALGUI_MESSAGE_UNION {
     
     ///set translation
     ALGUI_SET_TRANSLATION_MESSAGE set_translation;
+    
+    ///display resized message
+    ALGUI_DISPLAY_RESIZED_MESSAGE display_resized;
 } ALGUI_MESSAGE_UNION;
 
 

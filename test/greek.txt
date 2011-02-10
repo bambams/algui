@@ -1,2 +1,0 @@
-[root]
-hello world = γειά σου κόσμε

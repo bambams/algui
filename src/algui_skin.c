@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include "algui_resource_manager.h"
 
 
 /******************************************************************************
@@ -275,17 +276,57 @@ static int _get_full_filename(
 
 //loads a bitmap from a skin directory
 static ALLEGRO_BITMAP *_load_bitmap(ALGUI_SKIN *skin, const char *filename) {
+    ALLEGRO_BITMAP *bmp;
     _BUFFER buf;
+    
+    //get the full filename
     if (!_get_full_filename(skin->filename, filename, buf, sizeof(buf))) return NULL;
-    return al_load_bitmap(buf);
+    
+    //acquire the resource
+    bmp = algui_acquire_resource(buf);
+    
+    //if the resource exists, return it
+    if (bmp) return bmp;
+    
+    //load it
+    bmp = al_load_bitmap(buf);
+    
+    //failure to load it
+    if (!bmp) return NULL;
+    
+    //install a new resource
+    algui_install_resource(bmp, buf, algui_bitmap_resource_destructor);
+    
+    //success
+    return bmp;
 }
  
  
 //loads a font from a skin directory
 static ALLEGRO_FONT *_load_font(ALGUI_SKIN *skin, const char *filename, unsigned int size, unsigned int flags) {
+    ALLEGRO_FONT *font;
     _BUFFER buf;
+    
+    //get the full filename
     if (!_get_full_filename(skin->filename, filename, buf, sizeof(buf))) return NULL;
-    return al_load_font(buf, size, flags);
+    
+    //acquire the resource
+    font = algui_acquire_resource(buf);
+    
+    //if the resource exists, return it
+    if (font) return font;
+    
+    //load it
+    font = al_load_font(buf, size, flags);
+    
+    //failure to load it
+    if (!font) return NULL;
+    
+    //install a new resource
+    algui_install_resource(font, buf, algui_font_resource_destructor);
+    
+    //success
+    return font;
 }
  
  
@@ -404,6 +445,7 @@ ALLEGRO_COLOR algui_get_skin_color(ALGUI_SKIN *skin, const char *wgt, const char
 
 
 /** loads a bitmap from a skin.
+    The bitmap is managed via the resource manager.
     @param skin skin.
     @param wgt widget name.
     @param res resource name.
@@ -421,6 +463,7 @@ ALLEGRO_BITMAP *algui_get_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const c
 
 
 /** loads a font from a skin.
+    The font is managed via the resource manager.
     @param skin skin.
     @param wgt widget name.
     @param res resource name.

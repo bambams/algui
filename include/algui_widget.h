@@ -5,6 +5,8 @@
 #include <allegro5/allegro.h>
 #include "algui_message.h"
 #include "algui_tree.h"
+#include "algui_skin.h"
+#include "algui_resource_manager.h"
 
 
 /** algui widget proc.

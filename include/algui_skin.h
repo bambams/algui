@@ -83,6 +83,7 @@ ALLEGRO_COLOR algui_get_skin_color(ALGUI_SKIN *skin, const char *wgt, const char
 
 
 /** loads a bitmap from a skin.
+    The bitmap is managed via the resource manager.
     @param skin skin.
     @param wgt widget name.
     @param res resource name.
@@ -93,6 +94,7 @@ ALLEGRO_BITMAP *algui_get_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const c
 
 
 /** loads a font from a skin.
+    The font is managed via the resource manager.
     @param skin skin.
     @param wgt widget name.
     @param res resource name.
