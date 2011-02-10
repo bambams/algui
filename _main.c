@@ -60,7 +60,7 @@ int main() {
     algui_resize_widget(algui_get_display_widget(display), 640, 480);
     
     //skin widgets
-    skin = algui_load_skin("../../github/algui/test/test-skin/test-skin.txt");
+    skin = algui_load_skin("test/test-skin/test-skin.txt");
     algui_skin_widget(algui_get_display_widget(display), skin);
         
     /**** MANAGE EVENTS ****/
