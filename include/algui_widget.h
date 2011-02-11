@@ -5,6 +5,8 @@
 #include <allegro5/allegro.h>
 #include "algui_message.h"
 #include "algui_tree.h"
+#include "algui_skin.h"
+#include "algui_resource_manager.h"
 
 
 /** algui widget proc.
@@ -12,7 +14,7 @@
     @param msg message.
     @return non-zero if message was processed, zero otherwise.
  */
-typedef int (*ALGUI_WIDGET_PROC)(struct ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg); 
+typedef int (*ALGUI_WIDGET_PROC)(struct ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg);
 
 
 /** base struct for widgets.
@@ -22,7 +24,10 @@ typedef struct ALGUI_WIDGET {
     ALGUI_TREE tree;
     ALGUI_RECT rect;
     ALGUI_RECT screen_rect;
+    ALGUI_LIST timers;
+    const char *id;
     int capture:8;
+    int tab_order:15;
     int drawn:1;
     int layout:1;
     int visible:1;
@@ -106,6 +111,13 @@ ALGUI_WIDGET *algui_get_lowest_child_widget(ALGUI_WIDGET *wgt);
     @return the child; it may be null.
  */
 ALGUI_WIDGET *algui_get_highest_child_widget(ALGUI_WIDGET *wgt); 
+
+
+/** returns the number of children widgets.
+    @param wgt widget to get the number of children of.
+    @return the number of children widgets.
+ */
+unsigned long algui_get_widget_child_count(ALGUI_WIDGET *wgt);
 
 
 /** returns the root widget.
@@ -218,11 +230,37 @@ ALGUI_WIDGET *algui_get_mouse_widget(ALGUI_WIDGET *wgt);
 ALGUI_WIDGET *algui_get_widget_from_point(ALGUI_WIDGET *wgt, int x, int y); 
 
 
+/** returns the id of a widget.
+    @param wgt widget to get the id of.
+    @return the id of a widget.
+ */
+const char *algui_get_widget_id(ALGUI_WIDGET *wgt); 
+
+
+/** retrieves the tab order of a widget.
+    @param wgt widget to get the tab order of.
+    @return the widget's tab order.
+ */
+int algui_get_widget_tab_order(ALGUI_WIDGET *wgt); 
+
+
+/** retrieves the z-order of a widget.
+    @param wgt widget to get the z-order of.
+    @return the widget's z-order; 0 means that the widget is below all its siblings;
+        -1 means the input parameter was null.
+ */
+int algui_get_widget_z_order(ALGUI_WIDGET *wgt); 
+
+
 /** initializes a widget structure.
     @param wgt widget to initialize.
     @param proc widget proc.
+    @param id widget id; statically allocated text that identifies the widget; 
+        normally, it is the widget class, which is used for skinning widget classes,
+        but specific instances can modify the widget id to a unique identifier
+        in order to specify a unique skin appearance.
  */
-void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc);
+void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc, const char *id);
 
 
 /** cleans up a widget and its children.
@@ -343,6 +381,17 @@ void algui_move_widget(ALGUI_WIDGET *wgt, int x, int y);
 void algui_resize_widget(ALGUI_WIDGET *wgt, int w, int h); 
 
 
+/** Calculates the layout of the given widget and its children.
+    This may lead to further changes in other widgets up and down the tree, depending on layout.
+    This function may be invoked after a widget modifies a visual attribute
+    that changes the widget's position or size.
+    There is no need to invoke this function before drawing the widgets
+    for the first time; they will be packed automatically.
+    @param wgt widget to start the layout management from.
+ */
+void algui_pack_widget(ALGUI_WIDGET *wgt); 
+
+
 /** sets the widget's visible state.
     The widget receives the set-visible message.
     @param wgt widget.
@@ -417,8 +466,9 @@ int algui_set_focus_widget(ALGUI_WIDGET *wgt);
     or to the widget that has captured events or its children.
     @param wgt root of widget tree to dispatch the event to.
     @param ev allegro event.
+    @return non-zero if the event was processed, zero otherwise.
  */
-void algui_dispatch_event(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev); 
+int algui_dispatch_event(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev); 
 
 
 /** captures events.
@@ -491,6 +541,76 @@ int algui_query_dragged_data(ALGUI_WIDGET *source, const char *format, ALGUI_DRA
         The source widget must supply a copy of the data, which is freed by the destination widget.
  */
 void *algui_get_dragged_data(ALGUI_WIDGET *source, const char *format, ALGUI_DRAG_AND_DROP_TYPE type); 
+
+
+/** creates and starts an allegro timer for a widget.
+    @param wgt widget to add the timer to.
+    @param secs seconds, in timeout.
+    @param queue event queue to associate the timer with.
+    @return the allegro timer or NULL if the timer could not be created.
+ */
+ALLEGRO_TIMER *algui_create_widget_timer(ALGUI_WIDGET *wgt, double secs, ALLEGRO_EVENT_QUEUE *queue);
+
+
+/** stops, removes and destroys an allegro timer from a widget.
+    @param wgt widget to remove the timer from.
+    @param timer allegro timer to remove from the widget and then destroy.
+    @return non-zero if the operation is successful, zero otherwise.
+ */
+int algui_destroy_widget_timer(ALGUI_WIDGET *wgt, ALLEGRO_TIMER *timer);
+
+
+/** stops, removes and destroys all timers in a widget.
+    This function is called automatically from the default cleanup message handler.
+    @param wgt widget to remove the timers from.
+ */
+void algui_destroy_widget_timers(ALGUI_WIDGET *wgt);
+
+
+/** allows the widgets in the tree to set themselves up from the given skin.
+    Widgets receive a set-skin message.
+    @param wgt root of tree to skin.
+    @param skin skin.
+ */
+void algui_skin_widget(ALGUI_WIDGET *wgt, ALGUI_SKIN *skin); 
+
+
+/** sets the id of a widget.
+    @param wgt widget to get the id of.
+    @param id the new id of a widget.
+ */
+void algui_set_widget_id(ALGUI_WIDGET *wgt, const char *id); 
+
+
+/** sets the text of all widgets in the tree from a config file that contains translations.
+    Widgets receive the set-translation message.
+    @param wgt root of widget tree to set the translations of.
+    @param config allegro config file with translations.
+ */
+void algui_set_translation(ALGUI_WIDGET *wgt, ALLEGRO_CONFIG *config); 
+
+
+/** sets the tab order of a widget.
+    @param wgt widget to set the tab order of.
+    @param tbo the widget's tab order.
+ */
+void algui_set_widget_tab_order(ALGUI_WIDGET *wgt, int tbo); 
+
+
+/** moves the input focus backward within the given widget tree,
+    depending on the tab order of widgets.
+    @param wgt root of widget tree to move the focus backward into.
+    @return non-zero if focus was changed, zero otherwise.
+ */
+int algui_move_focus_backward(ALGUI_WIDGET *wgt);
+
+
+/** moves the input focus forward within the given widget tree,
+    depending on the tab order of widgets.
+    @param wgt root of widget tree to move the focus forward into.
+    @return non-zero if focus was changed, zero otherwise.
+ */
+int algui_move_focus_forward(ALGUI_WIDGET *wgt);
 
 
 #endif //ALGUI_WIDGET_H

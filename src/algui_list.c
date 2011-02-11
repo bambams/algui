@@ -1,5 +1,6 @@
 #include "algui_list.h"
 #include <assert.h>
+#include <stddef.h>
 
 
 /******************************************************************************
@@ -31,7 +32,7 @@ ALGUI_LIST_NODE *algui_get_last_list_node(ALGUI_LIST *list) {
     @param list list to get the length of.
     @return the length of the list of zero of the list is empty.
  */
-size_t algui_get_list_length(ALGUI_LIST *list) {
+unsigned long algui_get_list_length(ALGUI_LIST *list) {
     assert(list);
     return list->length;
 }

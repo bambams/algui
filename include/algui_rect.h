@@ -2,6 +2,9 @@
 #define ALGUI_RECT_H
 
 
+#include "algui_version.h"
+
+
 /** rectangle.
  */
 typedef struct ALGUI_RECT {

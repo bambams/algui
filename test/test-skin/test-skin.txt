@@ -1,0 +1,3 @@
+[display]
+background_color = 232, 232, 232
+background_bitmap = background.png

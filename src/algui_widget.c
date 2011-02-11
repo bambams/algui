@@ -13,8 +13,8 @@
 #define _LEFT_BUTTON         1
 #define _RIGHT_BUTTON        2
 #define _MIDDLE_BUTTON       3 
- 
- 
+
+
 /******************************************************************************
     INTERNAL FUNCTIONS
  ******************************************************************************/
@@ -291,6 +291,7 @@ static ALGUI_WIDGET *_get_mouse_widget(ALGUI_WIDGET *wgt) {
 //sets a key char message from an event
 static void _set_key_char_message(ALGUI_KEY_CHAR_MESSAGE *msg, int id, ALLEGRO_EVENT *ev) {
     msg->message.id = id;
+    msg->event = ev;
     msg->keycode = ev->keyboard.keycode;
     msg->unichar = ev->keyboard.unichar;
     msg->modifiers = ev->keyboard.modifiers;
@@ -301,8 +302,7 @@ static void _set_key_char_message(ALGUI_KEY_CHAR_MESSAGE *msg, int id, ALLEGRO_E
 //sets a mouse message structure from an event
 static void _set_mouse_message(ALGUI_WIDGET *wgt, ALGUI_MOUSE_MESSAGE *msg, int id, ALLEGRO_EVENT *ev) {
     msg->message.id = id;
-    msg->screen_x = ev->mouse.x;
-    msg->screen_y = ev->mouse.y;
+    msg->event = ev;
     msg->z = ev->mouse.z;
     msg->w = ev->mouse.w;
     msg->button = ev->mouse.button;
@@ -331,8 +331,7 @@ static ALGUI_WIDGET *_get_data_source(ALGUI_WIDGET *wgt) {
 //sets a drag message structure from an event
 static void _set_drag_message(ALGUI_WIDGET *wgt, ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE *msg, int id, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     msg->message.id = id;
-    msg->screen_x = ev->mouse.x;
-    msg->screen_y = ev->mouse.y;
+    msg->event = ev;
     msg->z = ev->mouse.z;
     msg->w = ev->mouse.w;
     msg->button = ev->mouse.button;
@@ -342,10 +341,115 @@ static void _set_drag_message(ALGUI_WIDGET *wgt, ALGUI_DRAG_AND_DROP_MOUSE_MESSA
 }
 
 
+//locates the node of a timer
+static ALGUI_LIST_NODE *_find_timer(ALGUI_LIST *timers, ALLEGRO_TIMER *timer) {
+    ALGUI_LIST_NODE *node;    
+    for(node = algui_get_first_list_node(timers); node; node = algui_get_next_list_node(node)) {
+        if (node->data == timer) return node;
+    }
+    return NULL;
+}
+
+
+//removes a timer node from a timer list, stops and destroys the timer,
+//and then free the node
+static void _destroy_timer(ALGUI_LIST *timers, ALGUI_LIST_NODE *node) {
+    ALLEGRO_TIMER *timer = (ALLEGRO_TIMER *)algui_get_list_node_data(node);
+    al_destroy_timer(timer);
+    algui_remove_list_node(timers, node);
+    al_free(node);
+}
+
+
+//manages the input focus according to key pressed
+static int _manage_focus_via_keyboard(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    switch (ev->keyboard.keycode) {
+        case ALLEGRO_KEY_LEFT:
+        case ALLEGRO_KEY_UP:
+            return algui_move_focus_backward(wgt);
+            
+        case ALLEGRO_KEY_RIGHT:
+        case ALLEGRO_KEY_DOWN:
+            return algui_move_focus_forward(wgt);
+            
+        case ALLEGRO_KEY_TAB:
+            if (ev->keyboard.modifiers & (ALLEGRO_KEYMOD_SHIFT)) {
+                return algui_move_focus_backward(wgt);
+            }
+            else {
+                return algui_move_focus_forward(wgt);
+            }
+            break;
+            
+    }
+    
+    return 0;
+}
+
+
+//returns the child widget with a lower tab order than the given one
+static ALGUI_WIDGET *_get_lower_tab_child(ALGUI_WIDGET *wgt, ALGUI_WIDGET *tab_child) {
+    ALGUI_WIDGET *result = NULL, *child;    
+    int min_tab_order = INT_MIN;
+    int max_tab_order = tab_child ? tab_child->tab_order : INT_MAX;
+    for(child = algui_get_highest_child_widget(wgt); child; child = algui_get_lower_sibling_widget(child)) {
+        if (child->tab_order < max_tab_order && child->tab_order > min_tab_order) {            
+            result = child;
+            min_tab_order = child->tab_order;
+        }
+    }
+    return result;
+}
+
+
+//moves focus back in children
+static int _move_focus_backward_in_children(ALGUI_WIDGET *wgt, ALGUI_WIDGET *focus_child) {
+    ALGUI_WIDGET *child;
+    for(child = _get_lower_tab_child(wgt, focus_child); child; child = _get_lower_tab_child(wgt, child)) {
+        if (_move_focus_backward_in_children(child, NULL)) return 1;
+        if (algui_set_focus_widget(child)) return 1;
+    }
+    return 0;
+}
+
+
+//returns the child widget with a higher tab order than the given one
+static ALGUI_WIDGET *_get_higher_tab_child(ALGUI_WIDGET *wgt, ALGUI_WIDGET *tab_child) {
+    ALGUI_WIDGET *result = NULL, *child;    
+    int max_tab_order = INT_MAX;
+    int min_tab_order = tab_child ? tab_child->tab_order : -1;
+    for(child = algui_get_lowest_child_widget(wgt); child; child = algui_get_higher_sibling_widget(child)) {
+        if (child->tab_order > min_tab_order && child->tab_order < max_tab_order) {            
+            result = child;
+            max_tab_order = child->tab_order;
+        }
+    }
+    return result;
+}
+
+
+//moves focus forward in children
+static int _move_focus_forward_in_children(ALGUI_WIDGET *wgt, ALGUI_WIDGET *focus_child) {
+    ALGUI_WIDGET *child;
+    for(child = _get_higher_tab_child(wgt, focus_child); child; child = _get_higher_tab_child(wgt, child)) {
+        if (_move_focus_forward_in_children(child, NULL)) return 1;
+        if (algui_set_focus_widget(child)) return 1;
+    }
+    return 0;
+}
+
+
 /******************************************************************************
     INTERNAL MESSAGE HANDLERS
  ******************************************************************************/
      
+
+//cleanup widget
+static int _msg_cleanup(ALGUI_WIDGET *wgt, ALGUI_CLEANUP_MESSAGE *msg) {
+    algui_destroy_widget_timers(wgt);
+    return 1;
+} 
+
 
 //insert widget
 static int _msg_insert_widget(ALGUI_WIDGET *wgt, ALGUI_INSERT_WIDGET_MESSAGE *msg) {
@@ -354,6 +458,7 @@ static int _msg_insert_widget(ALGUI_WIDGET *wgt, ALGUI_INSERT_WIDGET_MESSAGE *ms
     assert(msg->child);
     msg->ok = algui_insert_tree(&wgt->tree, &msg->child->tree, msg->next ? &msg->next->tree : NULL);
     if (msg->ok) {
+        msg->child->tab_order = algui_get_tree_child_count(&wgt->tree);
         _update_flags(msg->child, wgt->drawn);
         if (wgt->drawn) {
             _init_layout(msg->child);
@@ -494,7 +599,7 @@ static int _msg_hit_test(ALGUI_WIDGET *wgt, ALGUI_HIT_TEST_MESSAGE *msg) {
      
 
 //dispatches the relevant events
-static void _event_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_KEY_DOWN_MESSAGE key_down_msg;
     ALGUI_UNUSED_KEY_DOWN_MESSAGE unused_key_down_msg;
     ALGUI_WIDGET *capture, *focus;
@@ -509,25 +614,28 @@ static void _event_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     if (focus) {
         //prepare the keydown message
         key_down_msg.message.id = ALGUI_MSG_KEY_DOWN;
+        key_down_msg.event = ev;
         key_down_msg.keycode = ev->keyboard.keycode;
 
         //if the focus widget processes the message, then do nothing else        
-        if (_send_message_to_enabled(focus, &key_down_msg.message)) return;
+        if (_send_message_to_enabled(focus, &key_down_msg.message)) return 1;
     }
     
     //prepare the unused key down message
     unused_key_down_msg.message.id = ALGUI_MSG_UNUSED_KEY_DOWN;
+    unused_key_down_msg.event = ev;
     unused_key_down_msg.keycode = ev->keyboard.keycode;
     
     //dispatch the unused key down message
-    if (_broadcast_message_to_enabled(capture, &unused_key_down_msg.message)) return;
+    if (_broadcast_message_to_enabled(capture, &unused_key_down_msg.message)) return 1;
     
-    //TODO manage focus via the keyboard
+    //event not processed
+    return 0;
 }
 
 
 //dispatches the relevant events
-static void _event_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_KEY_UP_MESSAGE key_up_msg;
     ALGUI_UNUSED_KEY_UP_MESSAGE unused_key_up_msg;
     ALGUI_WIDGET *capture, *focus;
@@ -542,25 +650,28 @@ static void _event_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     if (focus) {
         //prepare the keyup message
         key_up_msg.message.id = ALGUI_MSG_KEY_UP;
+        key_up_msg.event = ev;
         key_up_msg.keycode = ev->keyboard.keycode;
 
         //if the focus widget processes the message, then do nothing else        
-        if (_send_message_to_enabled(focus, &key_up_msg.message)) return;
+        if (_send_message_to_enabled(focus, &key_up_msg.message)) return 1;
     }
     
     //prepare the unused key up message
     unused_key_up_msg.message.id = ALGUI_MSG_UNUSED_KEY_UP;
+    unused_key_up_msg.event = ev;
     unused_key_up_msg.keycode = ev->keyboard.keycode;
     
     //dispatch the unused key up message
-    if (_broadcast_message_to_enabled(capture, &unused_key_up_msg.message)) return;
+    if (_broadcast_message_to_enabled(capture, &unused_key_up_msg.message)) return 1;
     
-    //TODO manage focus via the keyboard
+    //event not processed
+    return 0;
 }
 
 
 //dispatches the relevant events
-static void _event_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_KEY_CHAR_MESSAGE key_char_msg;
     ALGUI_UNUSED_KEY_CHAR_MESSAGE unused_key_char_msg;
     ALGUI_WIDGET *capture, *focus;
@@ -577,23 +688,27 @@ static void _event_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
         _set_key_char_message(&key_char_msg, ALGUI_MSG_KEY_CHAR, ev);
 
         //if the focus widget processes the message, then do nothing else        
-        if (_send_message_to_enabled(focus, &key_char_msg.message)) return;
+        if (_send_message_to_enabled(focus, &key_char_msg.message)) return 1;
     }
     
     //prepare the unused key char message
     _set_key_char_message(&unused_key_char_msg, ALGUI_MSG_UNUSED_KEY_CHAR, ev);
     
     //dispatch the unused key char message
-    if (_broadcast_message_to_enabled(capture, &unused_key_char_msg.message)) return;    
+    if (_broadcast_message_to_enabled(capture, &unused_key_char_msg.message)) return 1; 
+        
+    //manage focus via the keyboard
+    return _manage_focus_via_keyboard(capture, ev);
 }
 
 
 //dispatches the relevant events
-static void _event_mouse_move(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_mouse_move(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_WIDGET *capture, *new_mouse, *old_mouse;
     ALGUI_MOUSE_LEAVE_MESSAGE leave_msg;
     ALGUI_MOUSE_ENTER_MESSAGE enter_msg;
     ALGUI_MOUSE_MOVE_MESSAGE move_msg;
+    int processed = 0;
 
     //dispatch events to the current capture
     capture = _get_capture_widget(wgt);    
@@ -614,29 +729,29 @@ static void _event_mouse_move(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
         if (old_mouse) {
             old_mouse->mouse = 0;
             _set_mouse_message(old_mouse, &leave_msg, ALGUI_MSG_MOUSE_LEAVE, ev);
-            _send_message_to_enabled(old_mouse, &leave_msg.message);
+            processed |= _send_message_to_enabled(old_mouse, &leave_msg.message);
         }
         
         //send a mouse enter to the new nouse
         if (new_mouse) {
             new_mouse->mouse = 1;
             _set_mouse_message(new_mouse, &enter_msg, ALGUI_MSG_MOUSE_ENTER, ev);
-            _send_message_to_enabled(new_mouse, &enter_msg.message);        
+            processed |= _send_message_to_enabled(new_mouse, &enter_msg.message);        
         }
-        
-        return;
     }
     
-    //if there is no mouse widget, then send the event to the capture widget
-    if (!new_mouse) new_mouse = capture;        
+    else {
+        if (!new_mouse) new_mouse = capture;                
+        _set_mouse_message(new_mouse, &move_msg, ALGUI_MSG_MOUSE_MOVE, ev);
+        processed |= _send_message_to_enabled(new_mouse, &move_msg.message);                    
+    }
     
-    _set_mouse_message(new_mouse, &move_msg, ALGUI_MSG_MOUSE_MOVE, ev);
-    _send_message_to_enabled(new_mouse, &move_msg.message);        
+    return processed;
 }
 
 
 //dispatches the relevant events
-static void _event_mouse_wheel(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_mouse_wheel(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_MOUSE_WHEEL_MESSAGE wheel_msg;
     ALGUI_WIDGET *capture, *focus;
     
@@ -650,12 +765,12 @@ static void _event_mouse_wheel(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     
     //send the event        
     _set_mouse_message(focus, &wheel_msg, ALGUI_MSG_MOUSE_WHEEL, ev);
-    _send_message_to_enabled(focus, &wheel_msg.message);        
+    return _send_message_to_enabled(focus, &wheel_msg.message);        
 }
 
 
 //dispatches the relevant events
-static void _event_button_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_button_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_MOUSE_MESSAGE button_msg;
     ALGUI_WIDGET *capture, *mouse;
     int id;
@@ -691,16 +806,16 @@ static void _event_button_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
             
         //no other buttons are supported                
         default:                
-            return;
+            return 0;
     }
 
     _set_mouse_message(mouse, &button_msg, id, ev);
-    _send_message_to_enabled(mouse, &button_msg.message);        
+    return _send_message_to_enabled(mouse, &button_msg.message);        
 }
 
 
 //dispatches the relevant events
-static void _event_button_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_button_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_LEFT_BUTTON_UP_MESSAGE button_msg;
     ALGUI_WIDGET *capture, *mouse;
     int id;
@@ -736,95 +851,42 @@ static void _event_button_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
             
         //no other buttons are supported                
         default:                
-            return;
+            return 0;
     }
 
     _set_mouse_message(mouse, &button_msg, id, ev);
-    _send_message_to_enabled(mouse, &button_msg.message);        
+    return _send_message_to_enabled(mouse, &button_msg.message);        
 }
 
 
 //dispatches the relevant events
-static void _event_expose(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_expose(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_RECT rct;
     wgt = algui_get_root_widget(wgt);
     algui_move_and_resize_rect(&rct, ev->display.x, ev->display.y, ev->display.width, ev->display.height);
     algui_draw_widget_rect(wgt, &rct);
+    return 1;
 }
 
 
 //dispatches the relevant events
-static void _event_window_deactivated(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_window_deactivated(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_WIDGET *focus = algui_get_focus_widget(wgt);
-    if (focus) _remove_focus(focus);
+    if (!focus) return 0;
+    _remove_focus(focus);
+    return 1;
 }
 
 
 //dispatches the relevant events
-static void _event_window_activated(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+static int _event_window_activated(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     //nothing at the moment
-}
-
-
-//normal event dispatch
-static void _event_dispatch(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
-    switch (ev->type) {
-        //key down
-        case ALLEGRO_EVENT_KEY_DOWN:
-            _event_key_down(wgt, ev);
-            break;
-        
-        //key up
-        case ALLEGRO_EVENT_KEY_UP:
-            _event_key_up(wgt, ev);
-            break;
-        
-        //key char
-        case ALLEGRO_EVENT_KEY_CHAR:
-            _event_key_char(wgt, ev);
-            break;
-        
-        //mouse moved
-        case ALLEGRO_EVENT_MOUSE_AXES:
-        case ALLEGRO_EVENT_MOUSE_WARPED:
-            if (ev->mouse.dx || ev->mouse.dy) {
-                _event_mouse_move(wgt, ev);
-            }
-            if (ev->mouse.dz || ev->mouse.dw) {
-                _event_mouse_wheel(wgt, ev);
-            }
-            break;
-        
-        //button down
-        case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
-            _event_button_down(wgt, ev);
-            break;
-        
-        //button up
-        case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-            _event_button_up(wgt, ev);
-            break;
-        
-        //expose
-        case ALLEGRO_EVENT_DISPLAY_EXPOSE:
-            _event_expose(wgt, ev);
-            break;
-        
-        //window deactivated
-        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
-            _event_window_deactivated(wgt, ev);
-            break;
-        
-        //window activated
-        case ALLEGRO_EVENT_DISPLAY_SWITCH_IN:
-            _event_window_activated(wgt, ev);
-            break;
-    }
+    return 0;
 }
 
 
 //dispatch the relevant event
-static void _event_drag_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
+static int _event_drag_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     ALGUI_WIDGET *capture, *mouse;
     ALGUI_DRAG_KEY_DOWN_MESSAGE msg;
     
@@ -839,16 +901,17 @@ static void _event_drag_key_down(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WID
     
     //prepare the message
     msg.message.id = ALGUI_MSG_DRAG_KEY_DOWN;
+    msg.event = ev;
     msg.keycode = ev->keyboard.keycode;
     msg.source = source;
     
     //send the message to the widget
-    _send_message_to_enabled(mouse, &msg.message);
+    return _send_message_to_enabled(mouse, &msg.message);
 }
 
     
 //dispatch the relevant event
-static void _event_drag_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
+static int _event_drag_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     ALGUI_WIDGET *capture, *mouse;
     ALGUI_DRAG_KEY_UP_MESSAGE msg;
     
@@ -863,16 +926,17 @@ static void _event_drag_key_up(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGE
     
     //prepare the message
     msg.message.id = ALGUI_MSG_DRAG_KEY_UP;
+    msg.event = ev;
     msg.keycode = ev->keyboard.keycode;
     msg.source = source;
     
     //send the message to the widget
-    _send_message_to_enabled(mouse, &msg.message);
+    return _send_message_to_enabled(mouse, &msg.message);
 }
 
     
 //dispatch the relevant event
-static void _event_drag_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
+static int _event_drag_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     ALGUI_WIDGET *capture, *mouse;
     ALGUI_DRAG_KEY_CHAR_MESSAGE msg;
     
@@ -887,6 +951,7 @@ static void _event_drag_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WID
     
     //prepare the message
     msg.message.id = ALGUI_MSG_DRAG_KEY_CHAR;
+    msg.event = ev;
     msg.keycode = ev->keyboard.keycode;
     msg.unichar = ev->keyboard.unichar;
     msg.modifiers = ev->keyboard.modifiers;
@@ -894,16 +959,17 @@ static void _event_drag_key_char(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WID
     msg.source = source;
     
     //send the message to the widget
-    _send_message_to_enabled(mouse, &msg.message);
+    return _send_message_to_enabled(mouse, &msg.message);
 }
 
     
 //dispatches the relevant events
-static void _event_drag_move(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
+static int _event_drag_move(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     ALGUI_WIDGET *capture, *new_mouse, *old_mouse;
     ALGUI_DRAG_LEAVE_MESSAGE leave_msg;
-    ALGUI_DRAG_ENTER_MESSAGE enter_msg;
+    ALGUI_DRAG_ENTER_MESSAGE enter_msg;    
     ALGUI_DRAG_MOVE_MESSAGE move_msg;
+    int processed = 0;
 
     //dispatch events to the current capture
     capture = _get_capture_widget(wgt);    
@@ -923,29 +989,29 @@ static void _event_drag_move(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET 
         if (old_mouse) {
             old_mouse->mouse = 0;
             _set_drag_message(old_mouse, &leave_msg, ALGUI_MSG_DRAG_LEAVE, ev, source);
-            _send_message_to_enabled(old_mouse, &leave_msg.message);
+            processed |= _send_message_to_enabled(old_mouse, &leave_msg.message);
         }
         
         //send a mouse enter to the new nouse
         if (new_mouse) {
             new_mouse->mouse = 1;
             _set_drag_message(new_mouse, &enter_msg, ALGUI_MSG_DRAG_ENTER, ev, source);
-            _send_message_to_enabled(new_mouse, &enter_msg.message);        
+            processed |= _send_message_to_enabled(new_mouse, &enter_msg.message);        
         }
-        
-        return;
     }
     
-    //if there is no mouse widget, then send the event to the capture widget
-    if (!new_mouse) new_mouse = capture;        
+    else {
+        if (!new_mouse) new_mouse = capture;                
+        _set_drag_message(new_mouse, &move_msg, ALGUI_MSG_DRAG_MOVE, ev, source);
+        processed |= _send_message_to_enabled(new_mouse, &move_msg.message);        
+    }
     
-    _set_drag_message(new_mouse, &move_msg, ALGUI_MSG_DRAG_MOVE, ev, source);
-    _send_message_to_enabled(new_mouse, &move_msg.message);        
+    return processed;
 }
 
 
 //dispatches the relevant events
-static void _event_drag_wheel(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
+static int _event_drag_wheel(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     ALGUI_DRAG_WHEEL_MESSAGE wheel_msg;
     ALGUI_WIDGET *capture, *mouse;
     
@@ -959,15 +1025,15 @@ static void _event_drag_wheel(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET
     
     //send the event        
     _set_drag_message(mouse, &wheel_msg, ALGUI_MSG_DRAG_WHEEL, ev, source);
-    _send_message_to_enabled(mouse, &wheel_msg.message);        
+    return _send_message_to_enabled(mouse, &wheel_msg.message);        
 }
 
 
 //dispatches the relevant events
-static void _event_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
+static int _event_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
     ALGUI_LEFT_DROP_MESSAGE drop_msg;
     ALGUI_WIDGET *capture, *mouse;
-    int id;
+    int id, processed;
 
     //dispatch events to the current capture
     capture = _get_capture_widget(wgt);    
@@ -1000,61 +1066,169 @@ static void _event_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *sour
             
         //no other buttons are supported                
         default:                
-            return;
+            return 0;
     }
 
     _set_drag_message(mouse, &drop_msg, id, ev, source);
-    _send_message_to_enabled(mouse, &drop_msg.message);        
+    processed |= _send_message_to_enabled(mouse, &drop_msg.message);        
     
     //end drag and drop
     algui_end_drag_and_drop(source);
+    
+    return processed;
 }
 
 
-//drag and drop dispatch
-static void _event_dispatch_drag_and_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
+//timer event
+static int  _event_timer(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    ALGUI_LIST_NODE *node;
+    ALGUI_TIMER_MESSAGE msg;
+    ALGUI_WIDGET *child;
+    
+    //find the node that corresponds to the timer
+    node = _find_timer(&wgt->timers, ev->timer.source);
+    
+    //if found, dispatch the event to the widget
+    if (node) {
+        //prepare the message
+        msg.message.id = ALGUI_MSG_TIMER;
+        msg.event = ev;
+        msg.timer = ev->timer.source;
+        
+        //send the message
+        _send_message_to_enabled(wgt, &msg.message);
+        
+        //timer event processed
+        return 1;
+    }
+    
+    //try the children
+    for(child = algui_get_highest_child_widget(wgt); child; child = algui_get_lower_sibling_widget(child)) {
+        if (_event_timer(child, ev)) return 1;
+    }
+    
+    //timer event not processed
+    return 0;
+}
+
+
+//display resized
+static int _event_display_resized(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    ALGUI_DISPLAY_RESIZED_MESSAGE msg;
+    wgt = algui_get_root_widget(wgt);
+    msg.message.id = ALGUI_MSG_DISPLAY_RESIZED;
+    msg.event = ev;
+    return algui_send_message(wgt, &msg.message);
+}
+
+
+//default event dispatch
+static int _event_dispatch_default(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    switch (ev->type) {        
+        //expose
+        case ALLEGRO_EVENT_DISPLAY_EXPOSE:
+            return _event_expose(wgt, ev);
+        
+        //window deactivated
+        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+            return _event_window_deactivated(wgt, ev);
+        
+        //window activated
+        case ALLEGRO_EVENT_DISPLAY_SWITCH_IN:
+            return _event_window_activated(wgt, ev);
+            
+        //timer
+        case ALLEGRO_EVENT_TIMER:
+            return _event_timer(wgt, ev);
+            
+        //display resized event
+        case ALLEGRO_EVENT_DISPLAY_RESIZE:            
+            return _event_display_resized(wgt, ev);
+    }
+    
+    //event not processed
+    return 0;
+}
+
+
+//normal event dispatch
+static int _event_dispatch(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+    int processed = 0;
+
     switch (ev->type) {
         //key down
         case ALLEGRO_EVENT_KEY_DOWN:
-            _event_drag_key_down(wgt, ev, source);
-            break;
+            return _event_key_down(wgt, ev);
         
         //key up
         case ALLEGRO_EVENT_KEY_UP:
-            _event_drag_key_up(wgt, ev, source);
-            break;
+            return _event_key_up(wgt, ev);
         
         //key char
         case ALLEGRO_EVENT_KEY_CHAR:
-            _event_drag_key_char(wgt, ev, source);
-            break;
+            return _event_key_char(wgt, ev);
         
         //mouse moved
         case ALLEGRO_EVENT_MOUSE_AXES:
         case ALLEGRO_EVENT_MOUSE_WARPED:
             if (ev->mouse.dx || ev->mouse.dy) {
-                _event_drag_move(wgt, ev, source);
+                processed |= _event_mouse_move(wgt, ev);
             }
             if (ev->mouse.dz || ev->mouse.dw) {
-                _event_drag_wheel(wgt, ev, source);
+                processed |= _event_mouse_wheel(wgt, ev);
             }
-            break;
+            return processed;
+        
+        //button down
+        case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
+            return _event_button_down(wgt, ev);
+        
+        //button up
+        case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
+            return _event_button_up(wgt, ev);
+    }            
+
+    //default dispatch            
+    return _event_dispatch_default(wgt, ev);            
+}
+
+
+//drag and drop dispatch
+static int _event_dispatch_drag_and_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, ALGUI_WIDGET *source) {
+    int processed = 0;
+
+    switch (ev->type) {
+        //key down
+        case ALLEGRO_EVENT_KEY_DOWN:
+            return _event_drag_key_down(wgt, ev, source);
+        
+        //key up
+        case ALLEGRO_EVENT_KEY_UP:
+            return _event_drag_key_up(wgt, ev, source);
+        
+        //key char
+        case ALLEGRO_EVENT_KEY_CHAR:
+            return _event_drag_key_char(wgt, ev, source);
+        
+        //mouse moved
+        case ALLEGRO_EVENT_MOUSE_AXES:
+        case ALLEGRO_EVENT_MOUSE_WARPED:
+            if (ev->mouse.dx || ev->mouse.dy) {
+                processed |= _event_drag_move(wgt, ev, source);
+            }
+            if (ev->mouse.dz || ev->mouse.dw) {
+                processed |= _event_drag_wheel(wgt, ev, source);
+            }
+            return processed;
         
         //drop
         case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-            _event_drop(wgt, ev, source);
-            break;
-        
-        //expose
-        case ALLEGRO_EVENT_DISPLAY_EXPOSE:
-            _event_expose(wgt, ev);
-            break;
-        
-        //window deactivated
-        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
-            algui_end_drag_and_drop(source);
-            break;
-    }
+            return _event_drop(wgt, ev, source);
+
+    }            
+
+    //default dispatch     
+    return _event_dispatch_default(wgt, ev);            
 }
 
     
@@ -1071,6 +1245,7 @@ static void _event_dispatch_drag_and_drop(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev, 
  */
 int algui_widget_proc(ALGUI_WIDGET *wgt, ALGUI_MESSAGE *msg) {
     switch (msg->id) {
+        case ALGUI_MSG_CLEANUP      : return _msg_cleanup(wgt, (ALGUI_CLEANUP_MESSAGE *)msg);
         case ALGUI_MSG_INSERT_WIDGET: return _msg_insert_widget(wgt, (ALGUI_INSERT_WIDGET_MESSAGE *)msg);
         case ALGUI_MSG_REMOVE_WIDGET: return _msg_remove_widget(wgt, (ALGUI_REMOVE_WIDGET_MESSAGE *)msg);
         case ALGUI_MSG_SET_RECT     : return _msg_set_rect(wgt, (ALGUI_SET_RECT_MESSAGE *)msg);
@@ -1186,6 +1361,16 @@ ALGUI_WIDGET *algui_get_highest_child_widget(ALGUI_WIDGET *wgt) {
     assert(wgt);
     tree = algui_get_last_child_tree(&wgt->tree);
     return tree ? (ALGUI_WIDGET *)algui_get_tree_data(tree) : NULL;
+}
+
+
+/** returns the number of children widgets.
+    @param wgt widget to get the number of children of.
+    @return the number of children widgets.
+ */
+unsigned long algui_get_widget_child_count(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return algui_get_tree_child_count(&wgt->tree);
 }
 
 
@@ -1385,18 +1570,57 @@ ALGUI_WIDGET *algui_get_widget_from_point(ALGUI_WIDGET *wgt, int x, int y) {
 }
 
 
+/** returns the id of a widget.
+    @param wgt widget to get the id of.
+    @return the id of a widget.
+ */
+const char *algui_get_widget_id(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return wgt->id;
+}
+
+
+/** retrieves the tab order of a widget.
+    @param wgt widget to get the tab order of.
+    @return the widget's tab order.
+ */
+int algui_get_widget_tab_order(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    return wgt->tab_order;
+}
+
+
+/** retrieves the z-order of a widget.
+    @param wgt widget to get the z-order of.
+    @return the widget's z-order; 0 means that the widget is below all its siblings;
+        -1 means the input parameter was null.
+ */
+int algui_get_widget_z_order(ALGUI_WIDGET *wgt) {
+    int result = -1;
+    for(; wgt; ++result, wgt = algui_get_lower_sibling_widget(wgt));
+    return result;
+}
+
+
 /** initializes a widget structure.
     @param wgt widget to initialize.
     @param proc widget proc.
+    @param id widget id; statically allocated text that identifies the widget; 
+        normally, it is the widget class, which is used for skinning widget classes,
+        but specific instances can modify the widget id to a unique identifier
+        in order to specify a unique skin appearance.
  */
-void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc) {
+void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc, const char *id) {
     assert(wgt);
     assert(proc);
     wgt->proc = proc;
     algui_init_tree(&wgt->tree, wgt);
     algui_set_rect(&wgt->rect, 0, 0, 0, 0);
     algui_set_rect(&wgt->screen_rect, 0, 0, 0, 0);
+    algui_init_list(&wgt->timers);
+    wgt->id = id;
     wgt->capture = 0;
+    wgt->tab_order = 0;
     wgt->visible = 1;
     wgt->visible_tree = 1;
     wgt->enabled = 1;
@@ -1416,7 +1640,7 @@ void algui_init_widget(ALGUI_WIDGET *wgt, ALGUI_WIDGET_PROC proc) {
 void algui_cleanup_widget(ALGUI_WIDGET *wgt) {
     ALGUI_CLEANUP_MESSAGE msg;
     msg.message.id = ALGUI_MSG_CLEANUP;
-    algui_send_message(wgt, &msg.message);
+    algui_broadcast_message(wgt, &msg.message);
 }
 
 
@@ -1516,8 +1740,10 @@ void algui_draw_widget_rect(ALGUI_WIDGET *wgt, ALGUI_RECT *rct) {
     @param wgt widget to draw; its children are also drawn.
  */
 void algui_draw_widget(ALGUI_WIDGET *wgt) {
+    ALGUI_RECT rct;
     assert(wgt);
-    _draw(wgt, &wgt->screen_rect);
+    algui_move_and_resize_rect(&rct, 0, 0, algui_get_widget_width(wgt), algui_get_widget_height(wgt));
+    algui_draw_widget_rect(wgt, &rct);
 }
 
 
@@ -1623,6 +1849,20 @@ void algui_resize_widget(ALGUI_WIDGET *wgt, int w, int h) {
     ALGUI_RECT rct = algui_get_widget_rect(wgt);
     algui_resize_rect(&rct, w, h);
     algui_set_widget_rect(wgt, &rct);
+}
+
+
+/** Calculates the layout of the given widget and its children.
+    This may lead to further changes in other widgets up and down the tree, depending on layout.
+    This function may be invoked after a widget modifies a visual attribute
+    that changes the widget's position or size.
+    There is no need to invoke this function before drawing the widgets
+    for the first time; they will be packed automatically.
+    @param wgt widget to start the layout management from.
+ */
+void algui_pack_widget(ALGUI_WIDGET *wgt) {
+    assert(wgt);
+    if (wgt->drawn) _update_layout(wgt);
 }
 
 
@@ -1753,12 +1993,13 @@ int algui_set_focus_widget(ALGUI_WIDGET *wgt) {
     or to the widget that has captured events or its children.
     @param wgt root of widget tree to dispatch the event to.
     @param ev allegro event.
+    @return non-zero if the event was processed, zero otherwise.
  */
-void algui_dispatch_event(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
+int algui_dispatch_event(ALGUI_WIDGET *wgt, ALLEGRO_EVENT *ev) {
     ALGUI_WIDGET *drag_and_drop_source;    
     drag_and_drop_source = algui_get_drag_and_drop_source(wgt);
-    if (!drag_and_drop_source) _event_dispatch(wgt, ev);
-    else _event_dispatch_drag_and_drop(wgt, ev, drag_and_drop_source);
+    if (!drag_and_drop_source) return _event_dispatch(wgt, ev);
+    return _event_dispatch_drag_and_drop(wgt, ev, drag_and_drop_source);
 }
 
 
@@ -1922,4 +2163,145 @@ void *algui_get_dragged_data(ALGUI_WIDGET *source, const char *format, ALGUI_DRA
     msg.data = NULL;
     algui_send_message(source, &msg.message);
     return msg.data;
+}
+
+
+/** creates and starts an allegro timer for a widget.
+    @param wgt widget to add the timer to.
+    @param secs seconds, in timeout.
+    @param queue event queue to associate the timer with.
+    @return the allegro timer or NULL if the timer could not be created.
+ */
+ALLEGRO_TIMER *algui_create_widget_timer(ALGUI_WIDGET *wgt, double secs, ALLEGRO_EVENT_QUEUE *queue) {
+    ALGUI_LIST_NODE *node;
+    ALLEGRO_TIMER *timer;
+    assert(wgt);
+    assert(secs > 0);
+    assert(queue);
+    timer = al_create_timer(secs);
+    if (!timer) return NULL;
+    node = (ALGUI_LIST_NODE *)al_malloc(sizeof(ALGUI_LIST_NODE));
+    assert(node);
+    algui_init_list_node(node, timer);
+    algui_append_list_node(&wgt->timers, node);
+    al_register_event_source(queue, al_get_timer_event_source(timer));
+    al_start_timer(timer);
+    return timer;
+}
+
+
+/** stops, removes and destroys an allegro timer from a widget.
+    @param wgt widget to remove the timer from.
+    @param timer allegro timer to remove from the widget and then destroy.
+    @return non-zero if the operation is successful, zero otherwise.
+ */
+int algui_destroy_widget_timer(ALGUI_WIDGET *wgt, ALLEGRO_TIMER *timer) {
+    ALGUI_LIST_NODE *node;
+    assert(wgt);
+    node = _find_timer(&wgt->timers, timer);
+    if (!node) return 0;
+    _destroy_timer(&wgt->timers, node);
+    return 1;
+}
+
+
+/** removes and destroys all timers in a widget.
+    This function is called automatically from the default cleanup message handler.
+    @param wgt widget to remove the timers from.
+ */
+void algui_destroy_widget_timers(ALGUI_WIDGET *wgt) {
+    ALGUI_LIST_NODE *node, *next;
+    assert(wgt);    
+    for(node = algui_get_first_list_node(&wgt->timers); node;) {
+        next = algui_get_next_list_node(node);
+        _destroy_timer(&wgt->timers, node);
+        node = next;
+    }
+}
+
+
+/** allows the widgets in the tree to set themselves up from the given skin.
+    Widgets receive a set-skin message.
+    @param wgt root of tree to skin.
+    @param skin skin.
+ */
+void algui_skin_widget(ALGUI_WIDGET *wgt, ALGUI_SKIN *skin) {
+    ALGUI_SET_SKIN_MESSAGE msg;
+    assert(skin);
+    msg.message.id = ALGUI_MSG_SET_SKIN;
+    msg.skin = skin;
+    algui_broadcast_message(wgt, &msg.message);
+}
+
+
+/** sets the id of a widget.
+    @param wgt widget to get the id of.
+    @param id the new id of a widget.
+ */
+void algui_set_widget_id(ALGUI_WIDGET *wgt, const char *id) {
+    assert(wgt);
+    wgt->id = id;
+}
+
+
+/** sets the text of all widgets in the tree from a config file that contains translations.
+    Widgets receive the set-translation message.
+    @param wgt root of widget tree to set the translations of.
+    @param config allegro config file with translations.
+ */
+void algui_set_translation(ALGUI_WIDGET *wgt, ALLEGRO_CONFIG *config) {
+    ALGUI_SET_TRANSLATION_MESSAGE msg;
+    msg.message.id = ALGUI_MSG_SET_TRANSLATION;
+    msg.config = config;
+    algui_broadcast_message(wgt, &msg.message);
+}
+
+
+/** sets the tab order of a widget.
+    @param wgt widget to set the tab order of.
+    @param tbo the widget's tab order.
+ */
+void algui_set_widget_tab_order(ALGUI_WIDGET *wgt, int tbo) {
+    assert(wgt);
+    wgt->tab_order = tbo;
+}
+
+
+/** moves the input focus backward within the given widget tree,
+    depending on the tab order of widgets.
+    @param wgt root of widget tree to move the focus backward into.
+    @return non-zero if focus was changed, zero otherwise.
+ */
+int algui_move_focus_backward(ALGUI_WIDGET *wgt) {
+    ALGUI_WIDGET *focus, *child_focus, *end;    
+    focus = algui_get_focus_widget(wgt);    
+    if (!focus) focus = wgt;    
+    child_focus = NULL;    
+    end = algui_get_parent_widget(wgt);
+    while (focus != end) {
+        if (_move_focus_backward_in_children(focus, child_focus)) return 1;        
+        child_focus = focus;
+        focus = algui_get_parent_widget(focus);
+    }    
+    return algui_set_focus_widget(wgt);
+}
+
+
+/** moves the input focus forward within the given widget tree,
+    depending on the tab order of widgets.
+    @param wgt root of widget tree to move the focus forward into.
+    @return non-zero if focus was changed, zero otherwise.
+ */
+int algui_move_focus_forward(ALGUI_WIDGET *wgt) {
+    ALGUI_WIDGET *focus, *child_focus, *end;    
+    focus = algui_get_focus_widget(wgt);    
+    if (!focus) focus = wgt;    
+    child_focus = NULL;    
+    end = algui_get_parent_widget(wgt);
+    while (focus != end) {
+        if (_move_focus_forward_in_children(focus, child_focus)) return 1;        
+        child_focus = focus;
+        focus = algui_get_parent_widget(focus);
+    }    
+    return algui_set_focus_widget(wgt);
 }

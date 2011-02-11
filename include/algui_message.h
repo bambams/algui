@@ -3,6 +3,7 @@
 
 
 #include "algui_rect.h"
+#include "algui_skin.h"
 
 
 /** widget messages enumeration.
@@ -139,6 +140,18 @@ typedef enum ALGUI_MSG_ID {
         
     ///ended drag and drop.
     ALGUI_MSG_DRAG_AND_DROP_ENDED,
+    
+    ///timer event
+    ALGUI_MSG_TIMER,
+    
+    ///set the UI skin
+    ALGUI_MSG_SET_SKIN,
+    
+    ///set translation
+    ALGUI_MSG_SET_TRANSLATION,
+    
+    ///display resized
+    ALGUI_MSG_DISPLAY_RESIZED,
         
     ///1st user message
     ALGUI_MSG_USER = 0x10000
@@ -331,11 +344,14 @@ typedef struct ALGUI_MOUSE_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;
     
-    ///screen mouse x
-    int screen_x;
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
     
-    ///screen mouse y
-    int screen_y;
+    ///local mouse x (relative to widget)
+    int x;
+    
+    ///local mouse y (relative to widget)
+    int y;
     
     ///mouse z
     int z;
@@ -345,12 +361,6 @@ typedef struct ALGUI_MOUSE_MESSAGE {
     
     ///mouse button
     unsigned button;
-    
-    ///local mouse x (relative to widget)
-    int x;
-    
-    ///local mouse y (relative to widget)
-    int y;
 } ALGUI_MOUSE_MESSAGE;
 
 
@@ -408,6 +418,9 @@ typedef struct ALGUI_KEY_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
+        
     ///key code.
     int keycode;
 } ALGUI_KEY_MESSAGE;  
@@ -435,6 +448,9 @@ typedef struct ALGUI_KEY_CHAR_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
+        
     ///key code
     int keycode;
     
@@ -459,11 +475,14 @@ typedef struct ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;
     
-    ///screen mouse x
-    int screen_x;
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
     
-    ///screen mouse y
-    int screen_y;
+    ///local mouse x (relative to widget)
+    int x;
+    
+    ///local mouse y (relative to widget)
+    int y;
     
     ///mouse z
     int z;
@@ -473,12 +492,6 @@ typedef struct ALGUI_DRAG_AND_DROP_MOUSE_MESSAGE {
     
     ///mouse button
     unsigned button;
-    
-    ///local mouse x (relative to widget)
-    int x;
-    
-    ///local mouse y (relative to widget)
-    int y;
     
     ///pointer to widget that has the dragged data
     struct ALGUI_WIDGET *source;
@@ -525,6 +538,9 @@ typedef struct ALGUI_DRAG_AND_DROP_KEY_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
     
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
+    
     ///key code.
     int keycode;
         
@@ -546,6 +562,9 @@ typedef ALGUI_DRAG_AND_DROP_KEY_MESSAGE ALGUI_DRAG_KEY_UP_MESSAGE;
 typedef struct ALGUI_DRAG_KEY_CHAR_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
+    
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
     
     ///key code
     int keycode;
@@ -611,6 +630,49 @@ typedef struct ALGUI_DRAG_AND_DROP_ENDED_MESSAGE {
     ///base message.
     ALGUI_MESSAGE message;    
 } ALGUI_DRAG_AND_DROP_ENDED_MESSAGE;
+
+
+///timer message.
+typedef struct ALGUI_TIMER_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
+        
+    ///allegro timer
+    ALLEGRO_TIMER *timer;
+} ALGUI_TIMER_MESSAGE;
+
+
+///set skin message.
+typedef struct ALGUI_SET_SKIN_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///skin
+    ALGUI_SKIN *skin;
+} ALGUI_SET_SKIN_MESSAGE;
+
+
+///set translation message.
+typedef struct ALGUI_SET_TRANSLATION_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///allegro configuration with translations.
+    ALLEGRO_CONFIG *config;
+} ALGUI_SET_TRANSLATION_MESSAGE;
+
+
+///display resized message.
+typedef struct ALGUI_DISPLAY_RESIZED_MESSAGE {
+    ///base message.
+    ALGUI_MESSAGE message;    
+    
+    ///allegro event that caused the message.
+    ALLEGRO_EVENT *event;
+} ALGUI_DISPLAY_RESIZED_MESSAGE;
 
 
 /** union of all messages.
@@ -750,6 +812,18 @@ typedef union ALGUI_MESSAGE_UNION {
     
     ///drag-and-drop ended
     ALGUI_DRAG_AND_DROP_ENDED_MESSAGE drag_and_drop_ended;
+    
+    ///timer event
+    ALGUI_TIMER_MESSAGE timer;
+    
+    ///set skin
+    ALGUI_SET_SKIN_MESSAGE set_skin;
+    
+    ///set translation
+    ALGUI_SET_TRANSLATION_MESSAGE set_translation;
+    
+    ///display resized message
+    ALGUI_DISPLAY_RESIZED_MESSAGE display_resized;
 } ALGUI_MESSAGE_UNION;
 
 
