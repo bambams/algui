@@ -1,9 +1,9 @@
 BINDIR = bin
 CC = gcc
-CFLAGS = -fPIC -g3 -Iinclude -Wall
+CFLAGS = -fPIC -g3 -Iinclude -Wall `pkg-config --cflags allegro-5.0`
 INCDIR = include
 LIBDIR = lib
-LIBS = `pkg-config --libs allegro-5.1 allegro_font-5.1 allegro_image-5.1 allegro_primitives-5.1 allegro_ttf-5.1`
+LIBS = `pkg-config --libs allegro-5.0 allegro_font-5.0 allegro_image-5.0 allegro_primitives-5.0 allegro_ttf-5.0`
 MKDIR = mkdir -p
 OBJDIR = obj
 REMOVE = rm -fR
@@ -16,7 +16,13 @@ LIBRARY = ${LIBDIR}/${SONAME}.${VERSION}
 LIBOBJS = ${OBJDIR}/algui_list.o \
           ${OBJDIR}/algui_rect.o \
           ${OBJDIR}/algui_tree.o \
-          ${OBJDIR}/algui_widget.o
+          ${OBJDIR}/algui_widget.o \
+          ${OBJDIR}/algui.o \
+          ${OBJDIR}/algui_display.o \
+          ${OBJDIR}/algui_log.o \
+          ${OBJDIR}/algui_rect.o \
+          ${OBJDIR}/algui_resource_manager.o \
+          ${OBJDIR}/algui_skin.o
 PROGRAM = ${BINDIR}/example
 
 .PHONY: all clean help library program run
@@ -24,52 +30,43 @@ PROGRAM = ${BINDIR}/example
 all: ${BINDIR} ${LIBDIR} ${OBJDIR} ${LIBRARY} ${PROGRAM} 
 
 clean:
-	${REMOVE} ${BINDIR} ${LIBDIR} ${OBJDIR}
+    ${REMOVE} ${BINDIR} ${LIBDIR} ${OBJDIR}
 
 help:
-	@echo 'Available targets:' && \
-	echo '    all: Build library and example program.' && \
-	echo '    clean: Remove generated files and directories.' && \
-	echo '    help: Show this message.' && \
-	echo '    library: Build the shared object library.' && \
-	echo '    program: Build library and example program.' && \
-	echo '    run: Build library and example and run example.'
+    @echo 'Available targets:' && \
+    echo '    all: Build library and example program.' && \
+    echo '    clean: Remove generated files and directories.' && \
+    echo '    help: Show this message.' && \
+    echo '    library: Build the shared object library.' && \
+    echo '    program: Build library and example program.' && \
+    echo '    run: Build library and example and run example.'
 
 library: ${LIBDIR} ${OBJDIR} ${LIBRARY}
 
 program: ${BINDIR} library ${PROGRAM}
 
 run: all
-	LD_LIBRARY_PATH=${LIBDIR} ${PROGRAM}
+    LD_LIBRARY_PATH=${LIBDIR} ${PROGRAM}
 
 ${LIBRARY}: ${LIBOBJS}
-	${CC} -shared -Wl,-soname,${SONAME} -o $@ $? ${LIBS}
-	${SYMLINK} ${SONAME}.${VERSION} ${LIBDIR}/${SONAME}
+    ${CC} -shared -Wl,-soname,${SONAME} -o $@ $? ${LIBS}
+    ${SYMLINK} ${SONAME}.${VERSION} ${LIBDIR}/${SONAME}
 
 ${BINDIR}:
-	${MKDIR} $@
+    ${MKDIR} $@
 
 ${LIBDIR}:
-	${MKDIR} $@
+    ${MKDIR} $@
 
 ${OBJDIR}:
-	${MKDIR} $@
+    ${MKDIR} $@
 
 ${PROGRAM}: ${OBJDIR}/_main.o $(LIBRARY)
-	${CC} -o $@ $< ${LIBS} -L${LIBDIR} -lalgui
+    ${CC} -o $@ $< ${LIBS} -L${LIBDIR} -lalgui
 
 ${OBJDIR}/_main.o: _main.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
+    ${CC} ${CFLAGS} -c -o $@ $<
 
-${OBJDIR}/algui_list.o: ${SRCDIR}/algui_list.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
-
-${OBJDIR}/algui_rect.o: ${SRCDIR}/algui_rect.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
-
-${OBJDIR}/algui_tree.o: ${SRCDIR}/algui_tree.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
-
-${OBJDIR}/algui_widget.o: ${SRCDIR}/algui_widget.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
+${OBJDIR}/%.o: ${SRCDIR}/%.c
+    ${CC} ${CFLAGS} -c -o $@ $<
 
