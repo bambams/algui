@@ -531,7 +531,7 @@ ALLEGRO_FONT *algui_get_skin_font(ALGUI_SKIN *skin, const char *wgt, const char 
     valstr = al_get_config_value(skin->config, wgt, res);
     
     //the filename string
-    filename = al_ustr_empty_string();
+    filename = al_ustr_new("");
     
     //convert the string to font; if the conversion fails, return the default
     if (!_string_to_font(valstr, def_size, def_flags, filename, &size, &flags)) {
@@ -557,7 +557,7 @@ ALLEGRO_FONT *algui_get_skin_font(ALGUI_SKIN *skin, const char *wgt, const char 
  */
 void algui_init_skin(ALGUI_SKIN *skin) {
     assert(skin);
-    skin->filename = al_ustr_empty_string();
+    skin->filename = al_ustr_new("");
     skin->config = al_create_config();
 }
 
