@@ -146,7 +146,7 @@ static int _string_to_double(const char *str, double *result) {
 //converts a string to color
 static int _string_to_color(const char *str, ALLEGRO_COLOR *color) {
     ALLEGRO_USTR *result[4];
-    int red, green, blue, alpha;
+    unsigned int red, green, blue, alpha;
     int count, ok = 0;
     
     //if the string is null, the result is invalid
