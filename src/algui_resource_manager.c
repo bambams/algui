@@ -11,10 +11,19 @@
  
 //resource node
 typedef struct _RESOURCE {
+    //list node
     ALGUI_LIST_NODE node;
+    
+    //pointer to data (bitmap, font, string etc)
     void *data;
-    void *name;
+    
+    //the resource's name
+    ALLEGRO_USTR *name;
+    
+    //used to destroy the data
     void (*destructor)(void *);
+    
+    //the reference count
     int ref_count;
 } _RESOURCE; 
  
@@ -56,10 +65,23 @@ void _algui_cleanup_resource_manager() {
 static _RESOURCE *_find_resource_by_name(const char *name) {
     ALGUI_LIST_NODE *node;
     _RESOURCE *res;    
+    ALLEGRO_USTR_INFO info;
+    ALLEGRO_USTR *name_ustr;
+    
+    //create a temporary name ustr to use in comparison
+    name_ustr = al_ref_cstr(&info, name);
+    
+    //iterate the resources
     for(node = algui_get_first_list_node(&_resources); node; node = algui_get_next_list_node(node)) {
+    
+        //get the resource
         res = (_RESOURCE *)algui_get_list_node_data(node);
-        if (strcmp(res->name, name) == 0) return res;
+        
+        //compare the strings
+        if (al_ustr_equal(res->name, name_ustr)) return res;
     }
+    
+    //not found
     return NULL;
 }
 
@@ -68,32 +90,68 @@ static _RESOURCE *_find_resource_by_name(const char *name) {
 static _RESOURCE *_find_resource_by_data(void *data) {
     ALGUI_LIST_NODE *node;
     _RESOURCE *res;    
+    
+    //iterate the resources
     for(node = algui_get_first_list_node(&_resources); node; node = algui_get_next_list_node(node)) {
+        //get the resource
         res = (_RESOURCE *)algui_get_list_node_data(node);
+        
+        //compare the resource
         if (res->data == data) return res;
     }
+    
+    //not found
     return NULL;
 }
 
 
 //creates a resource 
 static _RESOURCE *_create_resource(void *data, const char *name, void (*dtor)(void *), int ref_count) {
-    _RESOURCE *res = al_malloc(sizeof(_RESOURCE));
+    _RESOURCE *res;
+    
+    //allocate the resource
+    res = al_malloc(sizeof(_RESOURCE));
     assert(res);
+    
+    //init the list node
     algui_init_list_node(&res->node, res);
+    
+    //init the data
     res->data = data;
-    res->name = strdup(name);
+    
+    //init the name; copy the given name
+    res->name = al_ustr_new(name);
+    
+    //init the destructor
     res->destructor = dtor;
+    
+    //init the ref count
     res->ref_count = ref_count;
+    
     return res;
 }
 
 
 //destroys a resource
 static void _destroy_resource(_RESOURCE *res, int invoke_dtor) {
+    //invoke the destructor
     if (invoke_dtor) res->destructor(res->data);
-    free(res->name);
+    
+    //destroy the name string
+    al_ustr_free(res->name);
+    
+    //free the memory occupied by the resource
     al_free(res);
+}
+
+
+//removes a resource node from the list of resources and destroys the resource
+static void _uninstall_resource(_RESOURCE *res, int invoke_dtor) {
+    //remove the node from the list
+    algui_remove_list_node(&_resources, &res->node);
+    
+    //destroy the resoruce
+    _destroy_resource(res, invoke_dtor);
 }
  
  
@@ -105,7 +163,7 @@ static void _destroy_resource(_RESOURCE *res, int invoke_dtor) {
 /** installs a new resource to the resource manager.
     The new resource's reference count is 1.
     @param res resource.
-    @param name the resource's ASCII name; the string is copied internally.
+    @param name the resource's name (UTF-8 string); the string is copied internally.
     @param dtor destructor; invoked when the resource is removed.
     @return non-zero if the operation suceeded, zero if the resource already exists.
  */
@@ -162,11 +220,8 @@ int algui_uninstall_resource(void *res) {
         return 0;
     }        
     
-    //remove the node from the resources
-    algui_remove_list_node(&_resources, &node->node);
-    
-    //destroy the node without invoking the destructor
-    _destroy_resource(node, 0);
+    //uninstall the resource without invoking the destructor
+    _uninstall_resource(node, 0);
     
     al_unlock_mutex(_mutex);
     
@@ -177,7 +232,7 @@ int algui_uninstall_resource(void *res) {
 
 /** retrieves a resource from the resource manager by name.
     If the resource is found, then its reference count is incremented.
-    @param name the resource's ASCII name.
+    @param name the resource's name (UTF-8 string).
     @return pointer to the resource or NULL if the resource is not found.
  */
 void *algui_acquire_resource(const char *name) {
@@ -222,7 +277,7 @@ int algui_release_resource(void *res) {
     al_lock_mutex(_mutex);
         
     //find the resource
-    node = _find_resource_by_name(res);
+    node = _find_resource_by_data(res);
     
     //if not found, return error
     if (!node) {
@@ -233,6 +288,9 @@ int algui_release_resource(void *res) {
     //decrement the resource's ref count
     assert(node->ref_count > 0);
     --node->ref_count;
+    
+    //if the ref count reaches 0, uninstall the resource
+    if (!node->ref_count) _uninstall_resource(node, 1);
     
     al_lock_mutex(_mutex);
         
@@ -246,15 +304,22 @@ int algui_release_resource(void *res) {
 void algui_destroy_resources() {
     ALGUI_LIST_NODE *node, *next;    
     
+    //lock the resources
     al_lock_mutex(_mutex);
     
-    for(node = algui_get_first_list_node(&_resources); node; ) {
+    //iterate the resources
+    for(node = algui_get_first_list_node(&_resources); node; ) {    
+        //get next
         next = algui_get_next_list_node(node);
-        algui_remove_list_node(&_resources, node);
-        _destroy_resource((_RESOURCE *)algui_get_list_node_data(node), 1);
+        
+        //uninstall the resource
+        _uninstall_resource((_RESOURCE *)algui_get_list_node_data(node), 1);
+        
+        //continue with the next
         node = next;
     }
     
+    //unlock the resources
     al_unlock_mutex(_mutex);
 }
 
@@ -276,4 +341,14 @@ void algui_bitmap_resource_destructor(void *res) {
 void algui_font_resource_destructor(void *res) {
     assert(res);
     al_destroy_font((ALLEGRO_FONT *)res);
+}
+
+
+/** destructor for an Allegro string resource.
+    It frees the string.
+    @param res pointer to resource to destroy.
+ */
+void algui_ustr_resource_destructor(void *res) {
+    assert(res);
+    al_ustr_free((ALLEGRO_USTR *)res);
 }
