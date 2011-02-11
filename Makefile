@@ -16,7 +16,13 @@ LIBRARY = ${LIBDIR}/${SONAME}.${VERSION}
 LIBOBJS = ${OBJDIR}/algui_list.o \
           ${OBJDIR}/algui_rect.o \
           ${OBJDIR}/algui_tree.o \
-          ${OBJDIR}/algui_widget.o
+          ${OBJDIR}/algui_widget.o \
+          ${OBJDIR}/algui.o \
+          ${OBJDIR}/algui_display.o \
+          ${OBJDIR}/algui_log.o \
+          ${OBJDIR}/algui_rect.o \
+          ${OBJDIR}/algui_resource_manager.o \
+          ${OBJDIR}/algui_skin.o
 PROGRAM = ${BINDIR}/example
 
 .PHONY: all clean help library program run
@@ -61,15 +67,6 @@ ${PROGRAM}: ${OBJDIR}/_main.o $(LIBRARY)
 ${OBJDIR}/_main.o: _main.c
 	${CC} ${CFLAGS} -c -o $@ $<
 
-${OBJDIR}/algui_list.o: ${SRCDIR}/algui_list.c
-	${CC} ${CFLAGS} -c -o $@ $<
-
-${OBJDIR}/algui_rect.o: ${SRCDIR}/algui_rect.c
-	${CC} ${CFLAGS} -c -o $@ $<
-
-${OBJDIR}/algui_tree.o: ${SRCDIR}/algui_tree.c
-	${CC} ${CFLAGS} -c -o $@ $<
-
-${OBJDIR}/algui_widget.o: ${SRCDIR}/algui_widget.c
+${OBJDIR}/%.o: ${SRCDIR}/%.c
 	${CC} ${CFLAGS} -c -o $@ $<
 
