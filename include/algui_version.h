@@ -3,7 +3,7 @@
 
 
 ///version.
-#define ALGUI_VERSION        "0.0.0.7"
+#define ALGUI_VERSION        "0.0.0.8"
     
     
 #endif //ALGUI_VERSION_H

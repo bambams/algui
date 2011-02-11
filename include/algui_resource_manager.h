@@ -9,7 +9,7 @@
     The new resource's reference count is 1.
     All the resources will be automatically destroyed at program exit.
     @param res resource.
-    @param name the resource's ASCII name; the string is copied internally.
+    @param name the resource's name (UTF-8 string); the string is copied internally.
     @param dtor destructor; invoked when the resource is removed.
     @return non-zero if the operation suceeded, zero if the resource already exists.
  */
@@ -26,7 +26,7 @@ int algui_uninstall_resource(void *res);
 
 /** retrieves a resource from the resource manager by name.
     If the resource is found, then its reference count is incremented.
-    @param name the resource's ASCII name.
+    @param name the resource's name (UTF-8 string).
     @return pointer to the resource or NULL if the resource is not found.
  */
 void *algui_acquire_resource(const char *name); 
@@ -59,6 +59,13 @@ void algui_bitmap_resource_destructor(void *res);
     @param res pointer to resource to destroy.
  */
 void algui_font_resource_destructor(void *res); 
+
+
+/** destructor for an Allegro string resource.
+    It frees the string.
+    @param res pointer to resource to destroy.
+ */
+void algui_ustr_resource_destructor(void *res); 
 
 
 #endif //ALGUI_RESOURCE_MANAGER_H

@@ -1,5 +1,10 @@
 C GUI library for Allegro 5.
 
+version 0.0.0.8
+---------------
+
+Converted the skin and resource management APIs to use UTF-8 strings internally.
+
 version 0.0.0.7
 ---------------
 

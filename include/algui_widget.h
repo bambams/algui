@@ -525,7 +525,7 @@ ALGUI_WIDGET *algui_get_drag_and_drop_source(ALGUI_WIDGET *wgt);
 /** queries the data source widget about the data type and operation.
     The data source widget receives a query-drag-and-drop message.
     @param source data source widget.
-    @param format data format description (simple ASCII string).
+    @param format data format description (UTF-8 string).
     @param type drag-and-drop type.
     @return non-zero if the data source widget supports the given format and type, zero otherwise.
  */
@@ -535,7 +535,7 @@ int algui_query_dragged_data(ALGUI_WIDGET *source, const char *format, ALGUI_DRA
 /** Retrieves the dragged data from the data source widget.
     The data source widget receives a get-drag-and-drop message.
     @param source data source widget.
-    @param format data format description (simple ASCII string).
+    @param format data format description (UTF-8 string).
     @param type drag-and-drop type.
     @return pointer to the data or NULL if the source widget does not support the format.        
         The source widget must supply a copy of the data, which is freed by the destination widget.

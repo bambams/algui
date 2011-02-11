@@ -13,14 +13,14 @@
     with the help of the skin functions.
  */
 typedef struct ALGUI_SKIN {
-    char *filename;
+    ALLEGRO_USTR *filename;
     ALLEGRO_CONFIG *config;
 } ALGUI_SKIN;
 
 
 /** returns the current filename of a skin.
     @param skin skin to get the filename of.
-    @return the filename of a skin; a pointer to the internal character buffer.
+    @return the filename of a skin; a pointer to the internal character buffer (UTF-8 string).
  */
 const char *algui_get_skin_filename(ALGUI_SKIN *skin); 
 
@@ -34,8 +34,8 @@ ALLEGRO_CONFIG *algui_get_skin_config(ALGUI_SKIN *skin);
 
 /** returns an integer value from a skin.
     @param skin skin to get the value from.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default value.
     @return the value from the config or the default if not found.
  */
@@ -44,8 +44,8 @@ int algui_get_skin_int(ALGUI_SKIN *skin, const char *wgt, const char *res, int d
 
 /** returns an unsigned integer value from a skin.
     @param skin skin to get the value from.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default value.
     @return the value from the config or the default if not found.
  */
@@ -54,8 +54,8 @@ unsigned int algui_get_skin_uint(ALGUI_SKIN *skin, const char *wgt, const char *
 
 /** returns a double value from a skin.
     @param skin skin to get the value from.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default value.
     @return the value from the config or the default if not found.
  */
@@ -64,18 +64,18 @@ double algui_get_skin_double(ALGUI_SKIN *skin, const char *wgt, const char *res,
 
 /** returns a string from a skin.
     @param skin skin to get the value from.
-    @param wgt widget name.
-    @param res resource name.
-    @param def default value.
-    @return the value from the config or the default if not found. The pointer returned must not be freed.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
+    @param def default value (UTF-8 string).
+    @return the value from the config file or the default if not found.
  */
 const char *algui_get_skin_str(ALGUI_SKIN *skin, const char *wgt, const char *res, const char *def); 
 
 
 /** returns a color from a skin.
     @param skin skin to get the color from.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default value.
     @return the value from the config or the default if not found.
  */
@@ -85,8 +85,8 @@ ALLEGRO_COLOR algui_get_skin_color(ALGUI_SKIN *skin, const char *wgt, const char
 /** loads a bitmap from a skin.
     The bitmap is managed via the resource manager.
     @param skin skin.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default resource.
     @return the loaded resource or the default resource if the resource is not found.
  */
@@ -96,8 +96,8 @@ ALLEGRO_BITMAP *algui_get_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const c
 /** loads a font from a skin.
     The font is managed via the resource manager.
     @param skin skin.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default resource.
     @param def_size def size of font, in case the size of the font is not found.
     @param def_flags def size of font, in case the flags of the font are not found.
@@ -132,7 +132,7 @@ void algui_destroy_skin(ALGUI_SKIN *skin);
 
 /** loads a skin from disk.
     @param skin skin to load.
-    @param filename filename of the skin's config file.
+    @param filename filename of the skin's config file (UTF-8 string).
     @return the skin or NULL if the skin could not be loaded.
  */
 ALGUI_SKIN *algui_load_skin(const char *filename); 
@@ -140,7 +140,7 @@ ALGUI_SKIN *algui_load_skin(const char *filename);
 
 /** saves a skin to disk.
     @param skin skin to save.
-    @param filename filename.
+    @param filename filename (UTF-8 string).
     @return non-zero on success, zero on failure.
  */
 int algui_save_skin(ALGUI_SKIN *skin, const char *filename);
@@ -148,8 +148,8 @@ int algui_save_skin(ALGUI_SKIN *skin, const char *filename);
 
 /** adds or sets an integer value of a skin.
     @param skin skin to set the value of.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default value.
     @return non-zero on success, zero on failure.
  */
@@ -158,8 +158,8 @@ int algui_set_skin_int(ALGUI_SKIN *skin, const char *wgt, const char *res, int v
 
 /** adds or sets an unsigned integer value of a skin.
     @param skin skin to set the value of.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param val resource value.
     @return non-zero on success, zero on failure.
  */
@@ -168,8 +168,8 @@ int algui_set_skin_uint(ALGUI_SKIN *skin, const char *wgt, const char *res, unsi
 
 /** adds or sets a double value of a skin.
     @param skin skin to set the value of.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param val resource value.
     @return non-zero on success, zero on failure.
  */
@@ -178,9 +178,9 @@ int algui_set_skin_double(ALGUI_SKIN *skin, const char *wgt, const char *res, do
 
 /** adds or sets a string of a skin.
     @param skin skin to set the value of.
-    @param wgt widget name.
-    @param res resource name.
-    @param val resource value.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
+    @param val resource value (UTF-8 string).
     @return non-zero on success, zero on failure.
  */
 int algui_set_skin_str(ALGUI_SKIN *skin, const char *wgt, const char *res, const char *val); 
@@ -188,8 +188,8 @@ int algui_set_skin_str(ALGUI_SKIN *skin, const char *wgt, const char *res, const
 
 /** adds or sets a color of a skin.
     @param skin skin to set the color of.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param val resource value.
     @return non-zero on success, zero on failure.
  */
@@ -199,9 +199,9 @@ int algui_set_skin_color(ALGUI_SKIN *skin, const char *wgt, const char *res, ALL
 /** adds or sets a bitmap of a skin.
     The bitmap must be placed manually in the skin's folder.
     @param skin skin to set the bitmap of.
-    @param wgt widget name.
-    @param res resource name.
-    @param filename the filename of the bitmap.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
+    @param filename the filename of the bitmap (UTF-8 string).
     @return non-zero on success, zero on failure.
  */
 int algui_set_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const char *res, const char *filename); 
@@ -209,11 +209,10 @@ int algui_set_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const char *res, co
 
 /** adds or sets a font of a skin.
     The font must be placed manually in the skin's folder.
-    The font is not saved in 
     @param skin skin to set the bitmap of.
-    @param wgt widget name.
-    @param res resource name.
-    @param filename the filename of the font.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
+    @param filename the filename of the font (UTF-8 string).
     @param size the size of the font.
     @param flags font flags, as in al_load_font.
     @return non-zero on success, zero on failure.

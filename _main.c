@@ -117,8 +117,8 @@ int main() {
     END:
 
     //cleanup the gui
-    algui_destroy_skin(skin);
     algui_destroy_widget(algui_get_display_widget(display));
+    algui_destroy_skin(skin);
     algui_cleanup();
     
     //cleanup allegro
