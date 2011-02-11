@@ -8,322 +8,331 @@
 
 
 /******************************************************************************
-    INTERNAL MACROS
- ******************************************************************************/
- 
- 
-/******************************************************************************
-    INTERNAL TYPES
- ******************************************************************************/
- 
- 
-//conversion buffer
-typedef char _BUFFER[4096]; 
-
-
-//string position
-typedef struct _STRPOS {
-    const char *begin;
-    const char *end;
-} _STRPOS;
- 
- 
-/******************************************************************************
     INTERNAL FUNCTIONS
  ******************************************************************************/
  
  
-//skips whitespace in a string
-static const char *_skip_whitespace(const char *str) {
-    while (isspace(*str)) ++str;
-    return str;
-} 
- 
- 
-//skips whitespace backwards
-static const char *_skip_whitespace_reverse(const char *str) {
-    while (isspace(*(str - 1))) --str;
-    return str;
-} 
- 
- 
-//sets up a string pos entry, consuming whitespace in front and back of the string
-static void _setup_strpos(_STRPOS *pos, const char *begin, const char *end) {
-    pos->begin = _skip_whitespace(begin);
-    pos->end = _skip_whitespace_reverse(end);
-} 
- 
- 
-//split a string by character
-unsigned long _split_string(const char *str, char c, _STRPOS pos[], unsigned long pos_count) {
-    //position in 'pos' array and final count of string positions
-    unsigned long pos_index = 0;
+//adds a substring
+static int _add_substring(ALLEGRO_USTR *str, int begin_pos, int end_pos, ALLEGRO_USTR *result[], int result_len, int *count) {
+    //if the count exceeds the string length, do nothing
+    if (*count >= result_len) return 0;
     
-    //next position in string
-    char *next_str;
-
-    //iterate the string while there are enough positions in the array
-    while(*str && pos_index < pos_count) {
-        //find character
-        next_str = strchr(str, c);
-        
-        //character not found; setup the final entry
-        if (!next_str) {            
-            _setup_strpos(&pos[pos_index], str, strchr(str, '\0'));
-            ++pos_index;
-            break;
-        }
-        
-        //setup the entry
-        _setup_strpos(&pos[pos_index], str, next_str);
-        ++pos_index;
-        
-        //skip the character
-        str = next_str + 1;
-    }
-
-    //return number of entries    
-    return pos_index;
-}
-
-
-//parse uint from a string position
-static unsigned int _parse_uint(const char *pos, unsigned int v) {
-    unsigned int r;
-    char *endstr;    
-    r = strtoul(pos, &endstr, 10);
-    if (errno == ERANGE || endstr == pos) return v;
-    return r;
-}
- 
- 
-//parse uchar from a string position
-static unsigned char _parse_uchar(const char *pos, unsigned char v) {
-    unsigned int r = _parse_uint(pos, v);
-    return r <= 255 ? (unsigned char)r : v;
-}
- 
- 
-//converts a string to a color
-static int _string_to_color(const char *str, ALLEGRO_COLOR *color) {
-    _STRPOS pos[4];
-    unsigned int count;
-    unsigned char r = 0, g = 0, b = 0, a = 255;
+    //create a substring; remove whitespace
+    result[*count] = al_ustr_dup_substr(str, begin_pos, end_pos);
+    al_ustr_trim_ws(result[*count]);
     
-    //split the string
-    count = _split_string(str, ',', pos, 4);
-    
-    //check for invalid result; at least the RGB values must be specified
-    if (count < 3 || count > 4) return 0;
-    
-    //setup the rgb values
-    r = _parse_uchar(pos[0].begin, r);
-    g = _parse_uchar(pos[1].begin, g);
-    b = _parse_uchar(pos[2].begin, b);
-    
-    //setup the alpha value
-    if (count == 4) {
-        a = _parse_uchar(pos[3].begin, a);
-    }
-    
-    //setup the color
-    *color = al_map_rgba(r, g, b, a);
+    //increment the count
+    ++(*count);
     
     //success
     return 1;
 }
 
 
-//converts a color to a string
-static void _color_to_string(ALLEGRO_COLOR *color, char *str) {
-    unsigned char r, g, b, a;
-    al_unmap_rgba(*color, &r, &g, &b, &a);
-    sprintf(str, "%ui,%ui,%ui,%ui", (unsigned int)r, (unsigned int)g, (unsigned int)b, (unsigned int)a);
+//splits a string by a character
+static int _split_string_by_char(const char *str, int ch, ALLEGRO_USTR *result[], int result_len) {
+    //start from the string beginning
+    int pos = 0, next_pos;
+    
+    //count of sub-strings found
+    int count = 0;
+    
+    //temp allegro string 
+    ALLEGRO_USTR_INFO temp_info;
+    ALLEGRO_USTR *temp = al_ref_cstr(&temp_info, str);
+
+    //iterate until the end of string
+    for(;;) {
+        //find the character
+        next_pos = al_ustr_find_chr(temp, pos, ch);
+        
+        //if not found, end
+        if (next_pos == -1) break;
+        
+        //add a string; if no more strings can be added, return
+        if (!_add_substring(temp, pos, next_pos, result, result_len, &count)) goto END;
+        
+        //continue after the character
+        pos = next_pos + al_utf8_width(ch);
+    }
+    
+    //set the remainder of the string to be the last string in the array
+    _add_substring(temp, pos, al_ustr_size(temp), result, result_len, &count);
+    
+    END:
+    
+    return count;
+} 
+
+
+//frees a string array
+static void _free_string_array(ALLEGRO_USTR *str[], int count) {
+    int i;
+    for(i = 0; i < count; ++i) {
+        al_ustr_free(str[i]);
+    }
+}
+ 
+ 
+//converts a string to integer
+static int _string_to_int(const char *str, int *result) {
+    char *endptr;
+    long temp;
+
+    //if the string is null, the result is invalid
+    if (!str) return 0;
+    
+    //convert the string to integer
+    temp = strtol(str, &endptr, 0);
+    
+    //check for overflow/underflow
+    if (errno == ERANGE) return 0;
+    
+    //check for conversion error
+    if (temp == 0 && endptr == str) return 0;
+    
+    //success
+    *result = temp;
+    return 1;
+} 
+ 
+ 
+//converts a string to unsigned integer
+static int _string_to_uint(const char *str, unsigned int *result) {
+    char *endptr;
+    unsigned long temp;
+
+    //if the string is null, the result is invalid
+    if (!str) return 0;
+    
+    //convert the string to integer
+    temp = strtoul(str, &endptr, 0);
+    
+    //check for overflow/underflow
+    if (errno == ERANGE) return 0;
+    
+    //check for conversion error
+    if (temp == 0 && endptr == str) return 0;
+        
+    //success
+    *result = temp;
+    return 1;
+} 
+ 
+ 
+//converts a string to a double
+static int _string_to_double(const char *str, double *result) {
+    char *endptr;
+    double temp;
+
+    //if the string is null, the result is invalid
+    if (!str) return 0;
+    
+    //convert the string to double
+    temp = strtod(str, &endptr);
+    
+    //check for overflow/underflow
+    if (errno == ERANGE) return 0;
+    
+    //check for conversion error
+    if (temp == 0.0 && endptr == str) return 0;
+        
+    //success
+    *result = temp;
+    return 1;
+} 
+
+
+//converts a string to color
+static int _string_to_color(const char *str, ALLEGRO_COLOR *color) {
+    ALLEGRO_USTR *result[4];
+    int red, green, blue, alpha;
+    int count, ok = 0;
+    
+    //if the string is null, the result is invalid
+    if (!str) return 0;
+    
+    //split the string by ','
+    count = _split_string_by_char(str, ',', result, 4);
+    
+    switch (count) {
+        //read red, green, blue
+        case 3:
+            _string_to_uint(al_cstr(result[0]), &red);
+            _string_to_uint(al_cstr(result[1]), &green);
+            _string_to_uint(al_cstr(result[2]), &blue);
+            *color = al_map_rgb(red, green, blue);
+            ok = 1;
+            break;
+            
+        //read red, green, blue, alpha
+        case 4:
+            _string_to_uint(al_cstr(result[0]), &red);
+            _string_to_uint(al_cstr(result[1]), &green);
+            _string_to_uint(al_cstr(result[2]), &blue);
+            _string_to_uint(al_cstr(result[3]), &alpha);
+            *color = al_map_rgba(red, green, blue, alpha);
+            ok = 1;
+            break;
+    }
+    
+    //free the strings
+    _free_string_array(result, count);
+    
+    return ok;
 }
 
 
-//converts a font description to font attributes
+//returns the filepath of a resource
+static ALLEGRO_USTR *_get_resource_filepath(const ALLEGRO_USTR *skin_filepath, const char *resource_filename) {
+    ALLEGRO_USTR *result;            
+    int pos, end_pos;
+    ALLEGRO_USTR *temp;
+    ALLEGRO_USTR_INFO temp_info;
+
+    //duplicate the resource filepath in order to replace '\' by '/'
+    result = al_ustr_dup(skin_filepath);
+    
+    //replace '\' with '/'
+    al_ustr_find_replace_cstr(result, 0, "\\", "/");
+    
+    //find the end of the string
+    end_pos = al_ustr_size(result);
+    
+    //find the last occurrence of '/'
+    pos = al_ustr_rfind_chr(result, end_pos, '/');
+    
+    //find the position after the '/'
+    pos += al_utf8_width('/');   
+    
+    //the replace function needs a ustr
+    temp = al_ref_cstr(&temp_info, resource_filename);
+    
+    //replace the string after the '/' with the resource filename
+    al_ustr_replace_range(result, pos, end_pos, temp);
+    
+    return result;
+}
+
+
+//converts a string to a font 
 static int _string_to_font(
     const char *str, 
     unsigned int def_size, 
     unsigned int def_flags, 
-    char *filename, 
-    unsigned int filename_size, 
+    ALLEGRO_USTR *filename, 
     unsigned int *size, 
     unsigned int *flags)
 {
-    _STRPOS pos[3];
-    unsigned int count;
-    unsigned int len;
-
-    //split the string
-    count = _split_string(str, ',', pos, 3);
+    ALLEGRO_USTR *result[3];
+    int count, ok = 0;
     
-    //check for invalid result; 
-    if (count < 1 || count > 3) return 0;
+    //if the string is null, the result is invalid
+    if (!str) return 0;
     
-    //check the filename length
-    len = pos[0].end - pos[0].begin;
-    if (len >= filename_size - 1) return 0;
+    //split the string by ','
+    count = _split_string_by_char(str, ',', result, 3);
     
-    //setup the filename
-    memcpy(filename, pos[0].begin, len);
-    filename[len] = '\0';
-    
-    //setup the size
-    *size = def_size;    
-    if (count >= 2) {
-        *size = _parse_uint(pos[1].begin, def_size);
+    switch (count) {
+        //read the filename; set the size and flags from the defaults
+        case 1:
+            al_ustr_assign(filename, result[0]);
+            *size = def_size;
+            *flags = def_flags;
+            ok = 1;
+            break;
+            
+        //read the filename and the size; set the flags from the defaults
+        case 2:
+            al_ustr_assign(filename, result[0]);
+            if (_string_to_uint(al_cstr(result[1]), size)) {
+                *flags = def_flags;            
+                ok = 1;
+            }
+            break;
+            
+        //read the filename, the size and the flags
+        case 3:
+            al_ustr_assign(filename, result[0]);
+            if (_string_to_uint(al_cstr(result[1]), size)) {
+                if (_string_to_uint(al_cstr(result[2]), flags)) {
+                    ok = 1;
+                }
+            }
+            break;
     }
     
-    //setup the flags
-    *flags = def_flags; 
-    if (count == 3) {
-        *flags = _parse_uint(pos[2].begin, def_flags);
-    }
+    //free the strings
+    _free_string_array(result, count);
     
-    //success
-    return 1;
+    return ok;
 }
 
 
-//converts font attributes to string
-static void _font_to_string(const char *filename, unsigned int size, unsigned int flags, char *str) {
-    sprintf(str, "%s,%ui,%ui", filename, size, flags);
-}
-
-
-//fix a path by replacing '\' to '/'
-static int _fix_path(const char *filename, char *path, unsigned int path_size) {
-    unsigned int pos = 0;
-    
-    while(filename[pos]) {
-        //failure because the filename's length is greater than the path buffer
-        if (pos == path_size - 1) 
-            return 0;
-        
-        //if the character is not '\', copy it, else replace it
-        if (filename[pos] != '\\') path[pos] = filename[pos]; else path[pos] = '/';
-        
-        //next position
-        ++pos;
-    }
-    
-    //setup the null terminating character
-    path[pos] = '\0';
-    
-    //success
-    return 1;
-}
-
-
-//returns the path of a file
-static int _get_path(const char *filename, char *path, unsigned int path_size, unsigned int *len) {
-    const char *filename_end, *path_end;
-    _BUFFER buf;
-    
-    //convert '\' to '/'
-    if (!_fix_path(filename, buf, sizeof(buf))) return 0;
-    
-    //find the end of the filename string
-    filename_end = strchr(buf, '\0');
-    
-    //find the first '/' from the end
-    path_end = strrchr(buf, '/');
-    
-    //find the path length, including '/'
-    *len = path_end - buf + 1;
-    
-    //invalid len
-    if (*len <= 2 || *len > path_size - 1) return 0;
-    
-    //copy the path
-    memcpy(path, buf, *len);
-    path[*len] = '\0';
-    
-    //success
-    return 1;
-}
-
-
-//get the full filename of a resource
-static int _get_full_filename(
-    const char *skin_filename, 
-    const char *filename, 
-    char *full_filename, 
-    unsigned int full_filename_size)
-{
-    _BUFFER skin_path;
-    unsigned int skin_path_len, filename_len;
-    
-    //get path
-    if (!_get_path(skin_filename, skin_path, sizeof(skin_path), &skin_path_len)) return 0;
-    
-    //compute the filename's length
-    filename_len = strlen(filename);
-    
-    //if the buffer does not have enough space for the path and filename,
-    //return nothing
-    if (skin_path_len + filename_len >= full_filename_size - 1) return 0;
-    
-    //create the bitmap's path
-    sprintf(full_filename, "%s%s\0", skin_path, filename);
-    
-    //success
-    return 1;
-}
-
-
-//loads a bitmap from a skin directory
+//loads a bitmap from a file
 static ALLEGRO_BITMAP *_load_bitmap(ALGUI_SKIN *skin, const char *filename) {
+    ALLEGRO_USTR *filepath;
     ALLEGRO_BITMAP *bmp;
-    _BUFFER buf;
     
-    //get the full filename
-    if (!_get_full_filename(skin->filename, filename, buf, sizeof(buf))) return NULL;
+    //if the filename is null
+    if (!filename) return NULL;
     
-    //acquire the resource
-    bmp = algui_acquire_resource(buf);
+    //get the resource's filepath
+    filepath = _get_resource_filepath(skin->filename, filename);
     
-    //if the resource exists, return it
-    if (bmp) return bmp;
+    //empty filepath
+    if (!filepath) return NULL;
     
-    //load it
-    bmp = al_load_bitmap(buf);
+    //load the bitmap
+    bmp = al_load_bitmap(al_cstr(filepath));
     
-    //failure to load it
-    if (!bmp) return NULL;
+    //bitmap cannot be loaded
+    if (!bmp) {
+        al_ustr_free(filepath);
+        return NULL;
+    }        
     
-    //install a new resource
-    algui_install_resource(bmp, buf, algui_bitmap_resource_destructor);
+    //install a resource
+    if (!algui_install_resource(bmp, al_cstr(filepath), algui_bitmap_resource_destructor)) {
+        al_destroy_bitmap(bmp);
+        al_ustr_free(filepath);
+        return NULL;
+    }
     
     //success
     return bmp;
 }
  
  
-//loads a font from a skin directory
+//loads a font from a file
 static ALLEGRO_FONT *_load_font(ALGUI_SKIN *skin, const char *filename, unsigned int size, unsigned int flags) {
+    ALLEGRO_USTR *filepath;
     ALLEGRO_FONT *font;
-    _BUFFER buf;
     
-    //get the full filename
-    if (!_get_full_filename(skin->filename, filename, buf, sizeof(buf))) return NULL;
+    //if the filename is null
+    if (!filename) return NULL;
     
-    //acquire the resource
-    font = algui_acquire_resource(buf);
+    //get the resource's filepath
+    filepath = _get_resource_filepath(skin->filename, filename);
     
-    //if the resource exists, return it
-    if (font) return font;
+    //empty filepath
+    if (!filepath) return NULL;
     
-    //load it
-    font = al_load_font(buf, size, flags);
+    //load the font
+    font = al_load_font(al_cstr(filepath), size, flags);
     
-    //failure to load it
-    if (!font) return NULL;
+    //the font cannot be loaded
+    if (!font) {
+        al_ustr_free(filepath);
+        return NULL;
+    }        
     
-    //install a new resource
-    algui_install_resource(font, buf, algui_font_resource_destructor);
+    //install a resource
+    if (!algui_install_resource(font, al_cstr(filepath), algui_font_resource_destructor)) {
+        al_destroy_font(font);
+        al_ustr_free(filepath);
+        return NULL;
+    }
     
     //success
     return font;
@@ -337,11 +346,11 @@ static ALLEGRO_FONT *_load_font(ALGUI_SKIN *skin, const char *filename, unsigned
  
 /** returns the current filename of a skin.    
     @param skin skin to get the filename of.
-    @return the filename of a skin; a pointer to the internal character buffer.
+    @return the filename of a skin; a pointer to the internal character buffer (UTF-8 string).
  */
 const char *algui_get_skin_filename(ALGUI_SKIN *skin) {
     assert(skin);
-    return skin->filename;
+    return al_cstr(skin->filename);
 }
 
 
@@ -357,107 +366,144 @@ ALLEGRO_CONFIG *algui_get_skin_config(ALGUI_SKIN *skin) {
 
 /** returns an integer value from a skin.
     @param skin skin to get the value from.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default value.
     @return the value from the config or the default if not found.
  */
 int algui_get_skin_int(ALGUI_SKIN *skin, const char *wgt, const char *res, int def) {
     const char *valstr;
+    int result;
+    
     assert(skin);
     assert(skin->config);
+    
+    //get the config value
     valstr = al_get_config_value(skin->config, wgt, res);
-    if (!valstr) return def;
-    return atoi(valstr);
+    
+    //convert the string to integer; if the conversion fails, return the default
+    if (!_string_to_int(valstr, &result)) return def;
+    
+    //success
+    return result;
 }
 
 
 /** returns an unsigned integer value from a skin.
     @param skin skin to get the value from.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default value.
     @return the value from the config or the default if not found.
  */
 unsigned int algui_get_skin_uint(ALGUI_SKIN *skin, const char *wgt, const char *res, unsigned int def) {
     const char *valstr;
+    unsigned int result;
+    
     assert(skin);
     assert(skin->config);
+    
+    //get the config value    
     valstr = al_get_config_value(skin->config, wgt, res);
-    if (!valstr) return def;
-    return (unsigned int)atof(valstr);
+    
+    //convert the string to unsigned integer; if the conversion fails, return the default
+    if (!_string_to_uint(valstr, &result)) return def;    
+    
+    //success
+    return result;
 } 
 
 
 /** returns a double value from a skin.
     @param skin skin to get the value from.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default value.
     @return the value from the config or the default if not found.
  */
 double algui_get_skin_double(ALGUI_SKIN *skin, const char *wgt, const char *res, double def) {
     const char *valstr;
+    double result;
+    
     assert(skin);
     assert(skin->config);
+    
+    //get the config value    
     valstr = al_get_config_value(skin->config, wgt, res);
-    if (!valstr) return def;
-    return atof(valstr);
+    
+    //convert the string to double; if the conversion fails, return the default
+    if (!_string_to_double(valstr, &result)) return def;    
+    
+    //success
+    return result;
 }
 
 
 /** returns a string from a skin.
     The string must be freed by the caller.
     @param skin skin to get the value from.
-    @param wgt widget name.
-    @param res resource name.
-    @param def default value.
-    @return the value from the config or the default if not found. The pointer returned must not be freed.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
+    @param def default value (UTF-8 string).
+    @return the value from the config file or the default if not found.
  */
 const char *algui_get_skin_str(ALGUI_SKIN *skin, const char *wgt, const char *res, const char *def) {
     const char *valstr;
+    
     assert(skin);
     assert(skin->config);
+    
+    //get the config value    
     valstr = al_get_config_value(skin->config, wgt, res);
-    if (!valstr) return def;
-    return valstr;
+
+    //return the config value or the default if the config value is null    
+    return valstr ? valstr : def;
 }
 
 
 /** returns a color from a skin.
     @param skin skin to get the color from.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default value.
     @return the value from the config or the default if not found.
  */
 ALLEGRO_COLOR algui_get_skin_color(ALGUI_SKIN *skin, const char *wgt, const char *res, ALLEGRO_COLOR def) {
-    const char *valstr;
+    const char *valstr;    
     ALLEGRO_COLOR color;
-    int ok;
+    
     assert(skin);
     assert(skin->config);
+    
+    //get the config value
     valstr = al_get_config_value(skin->config, wgt, res);
-    if (!valstr) return def;
-    ok = _string_to_color(valstr, &color);
-    return ok ? color : def;
+    
+    //convert the string to a color; if the conversion fails, return the default
+    if (!_string_to_color(valstr, &color)) return def;
+    
+    //success
+    return color;
 }
 
 
 /** loads a bitmap from a skin.
     The bitmap is managed via the resource manager.
     @param skin skin.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default resource.
     @return the loaded resource or the default resource if the resource is not found.
  */
 ALLEGRO_BITMAP *algui_get_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const char *res, ALLEGRO_BITMAP *def) {
     const char *valstr;
+    
     assert(skin);
     assert(skin->config);
+    
+    //get the config value
     valstr = al_get_config_value(skin->config, wgt, res);
-    if (!valstr) return def;
+
+    //load the bitmap    
     return _load_bitmap(skin, valstr);
 }
 
@@ -465,8 +511,8 @@ ALLEGRO_BITMAP *algui_get_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const c
 /** loads a font from a skin.
     The font is managed via the resource manager.
     @param skin skin.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param def default resource.
     @param def_size def size of font, in case the size of the font is not found.
     @param def_flags def size of font, in case the flags of the font are not found.
@@ -474,15 +520,33 @@ ALLEGRO_BITMAP *algui_get_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const c
  */
 ALLEGRO_FONT *algui_get_skin_font(ALGUI_SKIN *skin, const char *wgt, const char *res, ALLEGRO_FONT *def, unsigned int def_size, unsigned int def_flags) {
     const char *valstr;
-    _BUFFER buf;
     unsigned int size, flags;
-    int ok;
+    ALLEGRO_USTR *filename;
+    ALLEGRO_FONT *font;
+    
     assert(skin);
     assert(skin->config);
+    
+    //get the config value
     valstr = al_get_config_value(skin->config, wgt, res);
-    if (!valstr) return def;
-    ok = _string_to_font(valstr, def_size, def_flags, buf, sizeof(buf), &size, &flags);
-    return ok ? _load_font(skin, buf, size, flags) : def;
+    
+    //the filename string
+    filename = al_ustr_empty_string();
+    
+    //convert the string to font; if the conversion fails, return the default
+    if (!_string_to_font(valstr, def_size, def_flags, filename, &size, &flags)) {
+        al_ustr_free(filename);
+        return def;
+    }        
+    
+    //load the font
+    font = _load_font(skin, al_cstr(filename), size, flags);
+    
+    //free the filename string
+    al_ustr_free(filename);
+    
+    //if the font was loaded successfuly, return it, otherwise return the default
+    return font ? font : def;
 }
 
 
@@ -493,7 +557,7 @@ ALLEGRO_FONT *algui_get_skin_font(ALGUI_SKIN *skin, const char *wgt, const char 
  */
 void algui_init_skin(ALGUI_SKIN *skin) {
     assert(skin);
-    skin->filename = strdup("");
+    skin->filename = al_ustr_empty_string();
     skin->config = al_create_config();
 }
 
@@ -504,10 +568,10 @@ void algui_init_skin(ALGUI_SKIN *skin) {
  */
 void algui_cleanup_skin(ALGUI_SKIN *skin) {
     assert(skin);
-    free(skin->filename);
-    skin->filename = 0;
+    al_ustr_free(skin->filename);
     al_destroy_config(skin->config);
-    skin->config = 0;
+    skin->filename = NULL;
+    skin->config = NULL;
 }
 
 
@@ -532,7 +596,7 @@ void algui_destroy_skin(ALGUI_SKIN *skin) {
 
 /** loads a skin from disk.
     @param skin skin to load.
-    @param filename filename of the skin's config file.
+    @param filename filename of the skin's config file (UTF-8 string).
     @return the skin or NULL if the skin could not be loaded.
  */
 ALGUI_SKIN *algui_load_skin(const char *filename) {
@@ -550,7 +614,7 @@ ALGUI_SKIN *algui_load_skin(const char *filename) {
     assert(skin);
     
     //copy the filename
-    skin->filename = strdup(filename);
+    skin->filename = al_ustr_new(filename);
     
     //set the config
     skin->config = config;
@@ -561,10 +625,12 @@ ALGUI_SKIN *algui_load_skin(const char *filename) {
 
 /** saves a skin to disk.
     @param skin skin to save.
-    @param filename filename.
+    @param filename filename (UTF-8 string).
     @return non-zero on success, zero on failure.
  */
 int algui_save_skin(ALGUI_SKIN *skin, const char *filename) {
+    ALLEGRO_USTR *new_filename;
+
     assert(skin);
     assert(skin->config);
     assert(filename);
@@ -572,64 +638,98 @@ int algui_save_skin(ALGUI_SKIN *skin, const char *filename) {
     //save the config
     if (!al_save_config_file(filename, skin->config)) return 0;
     
-    //check if the filename needs to be set
-    if (strcmp(filename, skin->filename) == 0) return 1;
+    //copy the new filename
+    new_filename = al_ustr_new(filename);
     
-    //set new filename
-    free(skin->filename);
-    skin->filename = strdup(filename);
+    //free the previous filename (which might be the given filename,
+    //and therefore we duplicate it before freeing the current filename)
+    al_ustr_free(skin->filename);
     
+    //set the new filename
+    skin->filename = new_filename;
+ 
+    //success   
     return 1;
 }
 
 
 /** adds or sets an integer value of a skin.
     @param skin skin to set the value of.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param val resource value.
     @return non-zero on success, zero on failure.
  */
 int algui_set_skin_int(ALGUI_SKIN *skin, const char *wgt, const char *res, int val) {
-    _BUFFER buf;
-    sprintf(buf, "%i", val);
-    return algui_set_skin_str(skin, wgt, res, buf);
+    ALLEGRO_USTR *temp;
+    int result;
+    
+    //use printf style to add the value
+    temp = al_ustr_newf("%i", val);
+    
+    //set the string
+    result = algui_set_skin_str(skin, wgt, res, al_cstr(temp));
+    
+    //free the temp string
+    al_ustr_free(temp);
+    
+    return result;
 }
 
 
 /** adds or sets an unsigned integer value of a skin.
     @param skin skin to set the value of.
     @param wgt widget name.
-    @param res resource name.
-    @param val resource value.
+    @param res resource name (UTF-8 string).
+    @param val resource value (UTF-8 string).
     @return non-zero on success, zero on failure.
  */
 int algui_set_skin_uint(ALGUI_SKIN *skin, const char *wgt, const char *res, unsigned int val) {
-    _BUFFER buf;
-    sprintf(buf, "%ui", val);
-    return algui_set_skin_str(skin, wgt, res, buf);
+    ALLEGRO_USTR *temp;
+    int result;
+    
+    //use printf style to add the value
+    temp = al_ustr_newf("%ui", val);
+    
+    //set the string
+    result = algui_set_skin_str(skin, wgt, res, al_cstr(temp));
+    
+    //free the temp string
+    al_ustr_free(temp);
+    
+    return result;
 } 
 
 
 /** adds or sets a double value of a skin.
     @param skin skin to set the value of.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param val resource value.
     @return non-zero on success, zero on failure.
  */
 int algui_set_skin_double(ALGUI_SKIN *skin, const char *wgt, const char *res, double val) {
-    _BUFFER buf;
-    sprintf(buf, "%g", val);
-    return algui_set_skin_str(skin, wgt, res, buf);
+    ALLEGRO_USTR *temp;
+    int result;
+    
+    //use printf style to add the value
+    temp = al_ustr_newf("%g", val);
+    
+    //set the string
+    result = algui_set_skin_str(skin, wgt, res, al_cstr(temp));
+    
+    //free the temp string
+    al_ustr_free(temp);
+    
+    return result;
 }  
 
 
 /** adds or sets a string of a skin.
     @param skin skin to set the value of.
-    @param wgt widget name.
-    @param res resource name.
-    @param val resource value.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
+    @param val resource value (UTF-8 string).
     @return non-zero on success, zero on failure.
  */
 int algui_set_skin_str(ALGUI_SKIN *skin, const char *wgt, const char *res, const char *val) {
@@ -642,24 +742,36 @@ int algui_set_skin_str(ALGUI_SKIN *skin, const char *wgt, const char *res, const
 
 /** adds or sets a color of a skin.
     @param skin skin to set the color of.
-    @param wgt widget name.
-    @param res resource name.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
     @param val resource value.
     @return non-zero on success, zero on failure.
  */
 int algui_set_skin_color(ALGUI_SKIN *skin, const char *wgt, const char *res, ALLEGRO_COLOR color) {
-    _BUFFER buf;
-    _color_to_string(&color, buf);
-    return algui_set_skin_str(skin, wgt, res, buf);
+    ALLEGRO_USTR *temp;
+    unsigned char red, green, blue, alpha;
+    int result;
+    
+    //convert the color to a string
+    al_unmap_rgba(color, &red, &green, &blue, &alpha);
+    temp = al_ustr_newf("%ui, %ui, %ui, %ui", (unsigned int)red, (unsigned int)green, (unsigned int)blue, (unsigned int)alpha);
+    
+    //set the skin
+    result = algui_set_skin_str(skin, wgt, res, al_cstr(temp));
+    
+    //free the temp string
+    al_ustr_free(temp);
+    
+    return result;
 }
 
 
 /** adds or sets a bitmap of a skin.
     The bitmap must be placed manually in the skin's folder.
     @param skin skin to set the bitmap of.
-    @param wgt widget name.
-    @param res resource name.
-    @param filename the filename of the bitmap.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
+    @param filename the filename of the bitmap (UTF-8 string).
     @return non-zero on success, zero on failure.
  */
 int algui_set_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const char *res, const char *filename) {
@@ -671,15 +783,25 @@ int algui_set_skin_bitmap(ALGUI_SKIN *skin, const char *wgt, const char *res, co
     The font must be placed manually in the skin's folder.
     The font is not saved in 
     @param skin skin to set the bitmap of.
-    @param wgt widget name.
-    @param res resource name.
-    @param filename the filename of the font.
+    @param wgt widget name (UTF-8 string).
+    @param res resource name (UTF-8 string).
+    @param filename the filename of the font (UTF-8 string).
     @param size the size of the font.
     @param flags font flags, as in al_load_font.
     @return non-zero on success, zero on failure.
  */
 int algui_set_skin_font(ALGUI_SKIN *skin, const char *wgt, const char *res, const char *filename, unsigned int size, unsigned int flags) {
-    _BUFFER buf;
-    _font_to_string(filename, size, flags, buf);
-    return algui_set_skin_str(skin, wgt, res, buf);
+    ALLEGRO_USTR *temp;
+    int result;
+    
+    //convert the font to a string
+    temp = al_ustr_newf("%s, %ui, %ui", filename, size, flags);
+
+    //set the string    
+    result = algui_set_skin_str(skin, wgt, res, al_cstr(temp));
+    
+    //free the temp string
+    al_ustr_free(temp);
+    
+    return result;
 }
