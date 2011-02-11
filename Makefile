@@ -19,9 +19,9 @@ LIBOBJS = ${OBJDIR}/algui.o \
 		  ${OBJDIR}/algui_log.o \
 		  ${OBJDIR}/algui_rect.o \
 		  ${OBJDIR}/algui_resource_manager.o \
-		  ${OBJDIR}/algui_skin.o
+		  ${OBJDIR}/algui_skin.o \
 		  ${OBJDIR}/algui_tree.o \
-		  ${OBJDIR}/algui_widget.o \
+		  ${OBJDIR}/algui_widget.o
 PROGRAM = ${BINDIR}/example
 
 .PHONY: all clean help library program run
