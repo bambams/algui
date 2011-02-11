@@ -1,9 +1,9 @@
 BINDIR = bin
 CC = gcc
-CFLAGS = -fPIC -g3 -Iinclude -Wall
+CFLAGS = -fPIC -g3 -Iinclude -Wall `pkg-config --cflags allegro-5.0`
 INCDIR = include
 LIBDIR = lib
-LIBS = `pkg-config --libs allegro-5.1 allegro_font-5.1 allegro_image-5.1 allegro_primitives-5.1 allegro_ttf-5.1`
+LIBS = `pkg-config --libs allegro-5.0 allegro_font-5.0 allegro_image-5.0 allegro_primitives-5.0 allegro_ttf-5.0`
 MKDIR = mkdir -p
 OBJDIR = obj
 REMOVE = rm -fR
@@ -59,17 +59,17 @@ ${PROGRAM}: ${OBJDIR}/_main.o $(LIBRARY)
 	${CC} -o $@ $< ${LIBS} -L${LIBDIR} -lalgui
 
 ${OBJDIR}/_main.o: _main.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $<
 
 ${OBJDIR}/algui_list.o: ${SRCDIR}/algui_list.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $<
 
 ${OBJDIR}/algui_rect.o: ${SRCDIR}/algui_rect.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $<
 
 ${OBJDIR}/algui_tree.o: ${SRCDIR}/algui_tree.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $<
 
 ${OBJDIR}/algui_widget.o: ${SRCDIR}/algui_widget.c
-	${CC} ${CFLAGS} `pkg-config --cflags allegro-5.1` -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $<
 
